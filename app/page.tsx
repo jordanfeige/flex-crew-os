@@ -32,7 +32,7 @@ import {
 } from "@/lib/stickiness";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Slider } from "@/components/ui/slider";
 import { cn } from "@/lib/utils";
 
@@ -422,9 +422,6 @@ export default function HomePage() {
             <CardHeader className="flex-row items-start justify-between gap-3 space-y-0 border-b-0 pb-0 sm:items-center">
               <div>
                 <CardTitle className="text-sm">Simulator · {member.name}</CardTitle>
-                <CardDescription>
-                  Nudge a signal — every surface recomputes from one engine.
-                </CardDescription>
               </div>
               <div className="flex flex-wrap items-center gap-2">
                 <select
