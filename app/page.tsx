@@ -586,7 +586,6 @@ export default function HomePage() {
                       <CardTitle>Worker experience</CardTitle>
                       <Badge variant="live">Engagement</Badge>
                     </div>
-                    <CardDescription>Career ladder · money · reason to open</CardDescription>
                   </CardHeader>
                   <CardContent className="space-y-5">
                     <div className="flex items-center gap-3">
@@ -827,9 +826,6 @@ export default function HomePage() {
                       <CardTitle>Reliability engine</CardTitle>
                       <Badge variant="engine">Explainability</Badge>
                     </div>
-                    <CardDescription>
-                      Transparent weighted sum — the spine of every surface.
-                    </CardDescription>
                   </CardHeader>
                   <CardContent className="space-y-4">
                     <div className="flex items-center justify-between gap-3 rounded-xl border border-border bg-muted/40 px-4 py-3">
@@ -897,7 +893,6 @@ export default function HomePage() {
                       <CardTitle>Marketplace intelligence</CardTitle>
                       <Badge variant="engine">Liquidity</Badge>
                     </div>
-                    <CardDescription>Same score → shortages, fill, churn.</CardDescription>
                   </CardHeader>
                   <CardContent className="space-y-5">
                     <HealthRadial value={market.supplyHealth} />
