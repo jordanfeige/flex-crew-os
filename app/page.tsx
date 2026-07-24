@@ -115,9 +115,9 @@ function HealthRadial({ value }: { value: number }) {
   const v = Math.min(100, Math.max(0, value));
   const r = 58;
   const cx = 80;
-  const cy = 78;
-  const track = `M ${cx - r} ${cy} A ${r} ${r} 0 0 0 ${cx + r} ${cy}`;
-  // Semicircle length = πr
+  const cy = 72;
+  // sweep=1 → upper semicircle in SVG y-down coords (L→R clockwise)
+  const track = `M ${cx - r} ${cy} A ${r} ${r} 0 0 1 ${cx + r} ${cy}`;
   const length = Math.PI * r;
   const filled = (v / 100) * length;
 
@@ -129,14 +129,9 @@ function HealthRadial({ value }: { value: number }) {
         : { color: "var(--critical)", label: "At risk", hint: "Liquidity under strain" };
 
   return (
-    <div className="rounded-xl border border-border bg-muted/30 px-3 pb-3 pt-2">
-      <div className="relative mx-auto w-[160px]">
-        <svg
-          viewBox="0 0 160 96"
-          className="mx-auto h-[96px] w-[160px] overflow-visible"
-          aria-hidden
-        >
-          {/* Track */}
+    <div className="rounded-xl border border-border bg-muted/30 px-3 pb-3 pt-3">
+      <div className="relative mx-auto h-[88px] w-[160px]">
+        <svg viewBox="0 0 160 88" className="absolute inset-0 h-full w-full" aria-hidden>
           <path
             d={track}
             fill="none"
@@ -144,7 +139,6 @@ function HealthRadial({ value }: { value: number }) {
             strokeWidth="12"
             strokeLinecap="round"
           />
-          {/* Value */}
           <motion.path
             key={v}
             d={track}
@@ -159,9 +153,8 @@ function HealthRadial({ value }: { value: number }) {
               reduce ? { duration: 0 } : { type: "spring", stiffness: 120, damping: 22 }
             }
           />
-          {/* End cap tick marks at 0 / 50 / 100 */}
           {[0, 0.5, 1].map((t) => {
-            // Upper semicircle: π → 0 going counterclockwise (SVG y-down)
+            // Upper arc: π → 0 (left → top → right)
             const a = Math.PI * (1 - t);
             const x1 = cx + (r - 7) * Math.cos(a);
             const y1 = cy - (r - 7) * Math.sin(a);
@@ -181,7 +174,7 @@ function HealthRadial({ value }: { value: number }) {
             );
           })}
         </svg>
-        <div className="pointer-events-none absolute inset-x-0 bottom-1 text-center">
+        <div className="pointer-events-none absolute inset-x-0 bottom-0 text-center">
           <motion.p
             key={value}
             initial={reduce ? false : { opacity: 0, y: 4 }}
@@ -193,7 +186,7 @@ function HealthRadial({ value }: { value: number }) {
           </motion.p>
         </div>
       </div>
-      <div className="mt-1 text-center">
+      <div className="mt-2 text-center">
         <p className="text-xs font-medium text-foreground">Marketplace health</p>
         <p className="mt-0.5 flex items-center justify-center gap-1.5 text-[11px]">
           <span
@@ -268,7 +261,12 @@ export default function HomePage() {
   function goTo(href: string) {
     setActiveNav(href);
     if (href === "#simulator") {
-      mainRef.current?.scrollTo({ top: 0, behavior: "smooth" });
+      // Mobile: document scroll · Desktop: main pane scroll
+      if (window.matchMedia("(min-width: 768px)").matches) {
+        mainRef.current?.scrollTo({ top: 0, behavior: "smooth" });
+      } else {
+        window.scrollTo({ top: 0, behavior: "smooth" });
+      }
       return;
     }
     const el = document.querySelector(href);
@@ -353,7 +351,7 @@ export default function HomePage() {
       };
 
   return (
-    <div className="flex h-dvh overflow-hidden bg-background">
+    <div className="flex min-h-dvh bg-background md:h-dvh md:overflow-hidden">
       {/* Sidebar — Gymdesk schema */}
       <aside className="hidden h-dvh w-[240px] shrink-0 flex-col border-r border-sidebar-border bg-sidebar md:flex">
         <div className="flex items-center border-b border-sidebar-border px-4 py-4">
@@ -401,7 +399,7 @@ export default function HomePage() {
         </nav>
       </aside>
 
-      <div className="flex h-dvh min-h-0 min-w-0 flex-1 flex-col overflow-hidden">
+      <div className="flex min-w-0 flex-1 flex-col md:h-dvh md:min-h-0 md:overflow-hidden">
         <header className="z-40 flex h-14 shrink-0 items-center gap-3 border-b border-border bg-card px-4 md:px-6">
           <div className="min-w-0">
             <p className="truncate text-sm font-semibold tracking-tight">
@@ -415,7 +413,7 @@ export default function HomePage() {
           </div>
         </header>
 
-        {/* Fixed under top nav — never scrolls away */}
+        {/* Mobile: scrolls with page · Desktop: pinned under top nav */}
         <div
           id="simulator"
           className="z-40 shrink-0 border-b border-border bg-card px-4 py-3 md:px-6 lg:px-8"
@@ -529,7 +527,10 @@ export default function HomePage() {
           </Card>
         </div>
 
-        <main ref={mainRef} className="min-h-0 flex-1 overflow-y-auto overscroll-contain p-4 md:p-6 lg:p-8">
+        <main
+          ref={mainRef}
+          className="flex-1 p-4 md:min-h-0 md:overflow-y-auto md:overscroll-contain md:p-6 lg:p-8"
+        >
           <div className="mx-auto flex max-w-[1280px] flex-col gap-5">
             {/* Three columns */}
             <div id="experience" className="scroll-mt-4 grid gap-5 lg:grid-cols-3">

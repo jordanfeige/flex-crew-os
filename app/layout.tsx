@@ -22,8 +22,10 @@ export const viewport: Viewport = {
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
-    <html lang="en" className={`h-full ${inter.variable}`} style={{ colorScheme: "light" }}>
-      <body className="h-full overflow-hidden font-sans antialiased">{children}</body>
+    <html lang="en" className={inter.variable} style={{ colorScheme: "light" }}>
+      <body className="min-h-dvh bg-background font-sans antialiased md:h-dvh md:overflow-hidden">
+        {children}
+      </body>
     </html>
   );
 }
