@@ -22,11 +22,15 @@ export type ChurnRisk = {
   reason: string;
 };
 
+/** Cheapest single action toward the nearest tier — probability shift included. */
 export type EstimatedImpact = {
   action: string;
-  deltaPoints: number;
-  projectedScore: number;
-  probabilityOfNextTier: number;
+  from: number;
+  to: number;
+  delta: number;
+  probFrom: number;
+  probTo: number;
+  nextTier: Tier | null;
 };
 
 function clamp(n: number, min: number, max: number): number {
@@ -52,6 +56,7 @@ export function tier(scoreValue: number, jobsCompleted: number): Tier {
   return "Elite";
 }
 
+/** Nearest score gate: 62 (→ Pro) then 90 (→ Elite). */
 export function nextThreshold(scoreValue: number): number {
   if (scoreValue < 62) return 62;
   if (scoreValue < 90) return 90;
@@ -63,6 +68,13 @@ export function nextTierName(current: Tier): Tier | null {
   if (current === "Shadow") return "Pro";
   if (current === "Pro") return "Elite";
   return null;
+}
+
+/** Map a score threshold to the tier you clear by reaching it. */
+export function tierClearedByThreshold(threshold: number): Tier {
+  if (threshold <= 62) return "Pro";
+  if (threshold <= 90) return "Elite";
+  return "Elite";
 }
 
 export function pointsToNextTier(scoreValue: number, jobsCompleted: number): number {
@@ -155,50 +167,69 @@ export function churnRisk(s: Signals, _scoreValue: number): ChurnRisk {
 type Lever = {
   key: "onTime" | "acceptance" | "rating";
   headroom: number;
-  simulate: (s: Signals) => Signals;
-  label: string;
-  shortLabel: string;
+  apply: (s: Signals) => Signals;
+  action: string;
 };
 
-/** Highest headroom×weight among on-time, acceptance, rating — toward nearest tier. */
+/**
+ * Highest-headroom lever toward the nearest threshold:
+ * (1−onTime)×35, (1−acceptance)×20, (1−rating/5)×25.
+ */
 function pickBestLever(s: Signals): Lever {
   const levers: Lever[] = [
     {
       key: "onTime",
       headroom: (1 - s.onTimeRate) * 35,
-      simulate: (x) => ({ ...x, onTimeRate: Math.min(1, x.onTimeRate + 0.05) }),
-      label: "Deliver one more on-time move",
-      shortLabel: "One on-time move",
+      apply: (x) => ({ ...x, onTimeRate: Math.min(1, x.onTimeRate + 0.05) }),
+      action: "Complete one more on-time move",
     },
     {
       key: "acceptance",
       headroom: (1 - s.acceptanceRate) * 20,
-      simulate: (x) => ({
+      apply: (x) => ({
         ...x,
         acceptanceRate: Math.min(1, x.acceptanceRate + 0.05),
       }),
-      label: "Accept 1 more job",
-      shortLabel: "Accept 1 more job",
+      action: "Accept your next job",
     },
     {
       key: "rating",
       headroom: (1 - s.avgRating / 5) * 25,
-      simulate: (x) => ({ ...x, avgRating: Math.min(5, x.avgRating + 0.1) }),
-      label: "Earn a stronger rating on your next job",
-      shortLabel: "Earn a 5-star finish",
+      apply: (x) => ({ ...x, avgRating: Math.min(5, x.avgRating + 0.1) }),
+      action: "Earn a stronger rating on your next job",
     },
   ];
 
   return levers.reduce((best, lever) => {
     if (lever.headroom > best.headroom) return lever;
     if (lever.headroom < best.headroom) return best;
-    // Tie-break: biggest immediate score gain toward next threshold
-    const bestGain = score(best.simulate(s)) - score(s);
-    const leverGain = score(lever.simulate(s)) - score(s);
+    const bestGain = score(best.apply(s)) - score(s);
+    const leverGain = score(lever.apply(s)) - score(s);
     return leverGain > bestGain ? lever : best;
   });
 }
 
+/** Apply the cheapest single action toward the nearest tier. */
+export function applyAction(s: Signals): Signals {
+  if (s.jobsCompleted < 3) {
+    return { ...s, jobsCompleted: s.jobsCompleted + 1 };
+  }
+  return pickBestLever(s).apply(s);
+}
+
+/**
+ * % chance of clearing the NEXT tier gate.
+ * Uses the worker's current score to lock the threshold (62 then 90),
+ * so projected probs stay comparable until the worker actually crosses.
+ */
+export function tierProb(sc: number, currentScore: number): number {
+  return clamp(Math.round(50 + (sc - nextThreshold(currentScore)) * 4), 3, 96);
+}
+
+/**
+ * Next-best-action always targets the nearest threshold (62 → Pro, 90 → Elite),
+ * never a far tier. Lever = highest headroom among on-time / acceptance / rating.
+ */
 export function nextBestAction(s: Signals): string {
   if (s.jobsCompleted < 3) {
     const need = 3 - s.jobsCompleted;
@@ -206,69 +237,63 @@ export function nextBestAction(s: Signals): string {
   }
 
   const current = score(s);
-  const t = tier(current, s.jobsCompleted);
-  const target = nextTierName(t);
-  if (!target) return "You're Elite — keep your streak to stay there.";
+  if (current >= 90) return "You're Elite — keep your streak to stay there.";
 
+  const threshold = nextThreshold(current);
+  const target = tierClearedByThreshold(threshold);
   const best = pickBestLever(s);
-  const projected = score(best.simulate(s));
+  const projected = score(best.apply(s));
   const delta = Math.max(1, projected - current);
-  return `${best.label} to reach ${target} (+${delta})`;
+  return `${best.action} to reach ${target} (+${delta})`;
 }
 
 export function estimatedImpact(s: Signals): EstimatedImpact {
-  const current = score(s);
-  const t = tier(current, s.jobsCompleted);
-  const target = nextTierName(t);
-  // Nearest tier threshold for THIS worker's current tier ladder
-  const threshold =
-    t === "Recruit" ? 62 : t === "Shadow" ? 62 : t === "Pro" ? 90 : 100;
+  const from = score(s);
+  const t = tier(from, s.jobsCompleted);
 
   if (s.jobsCompleted < 3) {
     const need = 3 - s.jobsCompleted;
-    const simulated = score({ ...s, jobsCompleted: s.jobsCompleted + need });
-    const delta = simulated - current;
-    const probabilityOfNextTier = clamp(
-      Math.round(60 + (simulated - threshold) * 6),
-      5,
-      97,
-    );
+    const projected = score({ ...s, jobsCompleted: s.jobsCompleted + need });
     return {
       action: `Complete ${need} more job${need === 1 ? "" : "s"}`,
-      deltaPoints: delta,
-      projectedScore: simulated,
-      probabilityOfNextTier,
+      from,
+      to: projected,
+      delta: projected - from,
+      probFrom: tierProb(from, from),
+      probTo: tierProb(projected, from),
+      nextTier: "Shadow",
     };
   }
 
-  if (!target) {
+  if (t === "Elite") {
     return {
       action: "Maintain Elite standards",
-      deltaPoints: 0,
-      projectedScore: current,
-      probabilityOfNextTier: 97,
+      from,
+      to: from,
+      delta: 0,
+      probFrom: 96,
+      probTo: 96,
+      nextTier: null,
     };
   }
 
   const best = pickBestLever(s);
-  const projectedScore = score(best.simulate(s));
-  const deltaPoints = projectedScore - current;
-  const probabilityOfNextTier = clamp(
-    Math.round(60 + (projectedScore - threshold) * 6),
-    5,
-    97,
-  );
+  const projected = score(best.apply(s));
+  const threshold = nextThreshold(from);
+  const next = tierClearedByThreshold(threshold);
 
   return {
-    action: best.shortLabel,
-    deltaPoints,
-    projectedScore,
-    probabilityOfNextTier,
+    action: best.action,
+    from,
+    to: projected,
+    delta: projected - from,
+    probFrom: tierProb(from, from),
+    probTo: tierProb(projected, from),
+    nextTier: next,
   };
 }
 
 export function coachNudge(s: Signals): string {
-  // Recruit unlock is jobs, not points — never say "0 pts from Shadow"
   if (s.jobsCompleted < 3) {
     const need = 3 - s.jobsCompleted;
     return need === 1
@@ -287,7 +312,6 @@ export function coachNudge(s: Signals): string {
   const t = tier(scoreValue, s.jobsCompleted);
   const next = nextTierName(t);
   const pts = pointsToNextTier(scoreValue, s.jobsCompleted);
-  // Only use the near-miss line when there are actual points left (1–5)
   if (next && pts >= 1 && pts <= 5) {
     return `You're ${pts} pt${pts === 1 ? "" : "s"} from ${next} — one strong job gets you there`;
   }

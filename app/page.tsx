@@ -12,11 +12,10 @@ import {
   Sparkles,
   TrendingUp,
   Users,
-  AlertTriangle,
   DollarSign,
 } from "lucide-react";
 import { CREW, MATCHED_JOBS, PERKS_BY_TIER, PIPELINE, type CrewMember } from "@/lib/data";
-import { evaluateMarketplace, SHORTAGES } from "@/lib/marketplace";
+import { evaluateMarketplace } from "@/lib/marketplace";
 import {
   evaluate,
   nextTierName,
@@ -30,6 +29,8 @@ import {
   tierRank,
   TIER_ECONOMICS,
 } from "@/lib/stickiness";
+import { EnginePipeline } from "@/components/engine-pipeline";
+import { MarketplaceHero } from "@/components/marketplace-hero";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -50,10 +51,10 @@ function tierCss(t: Tier): string {
 const TIERS: Tier[] = ["Recruit", "Shadow", "Pro", "Elite"];
 
 const NAV = [
+  { href: "#marketplace-hero", label: "Marketplace", icon: TrendingUp },
   { href: "#simulator", label: "Simulator", icon: Radio },
   { href: "#experience", label: "Experience", icon: Users },
   { href: "#engine", label: "Engine", icon: Shield },
-  { href: "#marketplace", label: "Marketplace", icon: TrendingUp },
 ] as const;
 
 function ProgressRing({
@@ -110,100 +111,6 @@ function ProgressRing({
   );
 }
 
-function HealthRadial({ value }: { value: number }) {
-  const reduce = useReducedMotion();
-  const v = Math.min(100, Math.max(0, value));
-  const r = 58;
-  const cx = 80;
-  const cy = 72;
-  // sweep=1 → upper semicircle in SVG y-down coords (L→R clockwise)
-  const track = `M ${cx - r} ${cy} A ${r} ${r} 0 0 1 ${cx + r} ${cy}`;
-  const length = Math.PI * r;
-  const filled = (v / 100) * length;
-
-  const status =
-    v >= 75
-      ? { color: "var(--good)", label: "Healthy", hint: "Fill + reliability holding" }
-      : v >= 55
-        ? { color: "var(--warn)", label: "Watch", hint: "Gaps or churn pressure" }
-        : { color: "var(--critical)", label: "At risk", hint: "Liquidity under strain" };
-
-  return (
-    <div className="rounded-xl border border-border bg-muted/30 px-3 pb-3 pt-3">
-      <div className="relative mx-auto h-[88px] w-[160px]">
-        <svg viewBox="0 0 160 88" className="absolute inset-0 h-full w-full" aria-hidden>
-          <path
-            d={track}
-            fill="none"
-            stroke="var(--border)"
-            strokeWidth="12"
-            strokeLinecap="round"
-          />
-          <motion.path
-            key={v}
-            d={track}
-            fill="none"
-            stroke={status.color}
-            strokeWidth="12"
-            strokeLinecap="round"
-            strokeDasharray={`${filled} ${length}`}
-            initial={reduce ? false : { strokeDasharray: `0 ${length}` }}
-            animate={{ strokeDasharray: `${filled} ${length}` }}
-            transition={
-              reduce ? { duration: 0 } : { type: "spring", stiffness: 120, damping: 22 }
-            }
-          />
-          {[0, 0.5, 1].map((t) => {
-            // Upper arc: π → 0 (left → top → right)
-            const a = Math.PI * (1 - t);
-            const x1 = cx + (r - 7) * Math.cos(a);
-            const y1 = cy - (r - 7) * Math.sin(a);
-            const x2 = cx + (r + 7) * Math.cos(a);
-            const y2 = cy - (r + 7) * Math.sin(a);
-            return (
-              <line
-                key={t}
-                x1={x1}
-                y1={y1}
-                x2={x2}
-                y2={y2}
-                stroke="var(--muted-foreground)"
-                strokeWidth="1.5"
-                strokeOpacity="0.35"
-              />
-            );
-          })}
-        </svg>
-        <div className="pointer-events-none absolute inset-x-0 bottom-0 text-center">
-          <motion.p
-            key={value}
-            initial={reduce ? false : { opacity: 0, y: 4 }}
-            animate={{ opacity: 1, y: 0 }}
-            className="text-[1.75rem] font-semibold leading-none tabular tracking-tight"
-          >
-            {value}
-            <span className="text-sm font-medium text-muted-foreground">/100</span>
-          </motion.p>
-        </div>
-      </div>
-      <div className="mt-2 text-center">
-        <p className="text-xs font-medium text-foreground">Marketplace health</p>
-        <p className="mt-0.5 flex items-center justify-center gap-1.5 text-[11px]">
-          <span
-            className="inline-block h-1.5 w-1.5 rounded-full"
-            style={{ background: status.color }}
-            aria-hidden
-          />
-          <span className="font-semibold" style={{ color: status.color }}>
-            {status.label}
-          </span>
-          <span className="text-muted-foreground">· {status.hint}</span>
-        </p>
-      </div>
-    </div>
-  );
-}
-
 function Stepper({
   value,
   onChange,
@@ -251,17 +158,17 @@ export default function HomePage() {
   const [signals, setSignals] = useState<Signals>(() => seedSignals(DEFAULT_WORKER_ID));
   const [incentiveUsd, setIncentiveUsd] = useState(15);
   const [logoOk, setLogoOk] = useState(true);
-  const [activeNav, setActiveNav] = useState("#simulator");
+  const [activeNav, setActiveNav] = useState("#marketplace-hero");
   const mainRef = useRef<HTMLElement>(null);
   const prevTierRef = useRef<Tier | null>(null);
   const [graduation, setGraduation] = useState<{ from: Tier; to: Tier } | null>(
     null,
   );
+  const [highlightExperience, setHighlightExperience] = useState(false);
 
   function goTo(href: string) {
     setActiveNav(href);
     if (href === "#simulator") {
-      // Mobile: document scroll · Desktop: main pane scroll
       if (window.matchMedia("(min-width: 768px)").matches) {
         mainRef.current?.scrollTo({ top: 0, behavior: "smooth" });
       } else {
@@ -273,12 +180,18 @@ export default function HomePage() {
     el?.scrollIntoView({ behavior: "smooth", block: "start" });
   }
 
+  function seeWhy() {
+    setHighlightExperience(true);
+    goTo("#experience");
+    window.setTimeout(() => setHighlightExperience(false), 1800);
+  }
+
   function selectWorker(id: string) {
+    // Always re-seed every control from that worker's CREW signals
     const nextSignals = seedSignals(id);
     setSelectedId(id);
     setSignals(nextSignals);
     setGraduation(null);
-    // Seed prev tier to the new worker so we don't false-celebrate on switch
     prevTierRef.current = evaluate(nextSignals).tier;
   }
 
@@ -441,7 +354,10 @@ export default function HomePage() {
                 </Button>
               </div>
             </CardHeader>
-            <CardContent className="grid gap-4 pt-4 sm:grid-cols-2 lg:grid-cols-3">
+            <CardContent
+              key={selectedId}
+              className="grid gap-4 pt-4 sm:grid-cols-2 lg:grid-cols-3"
+            >
               <div className="space-y-2">
                 <div className="flex justify-between text-xs text-muted-foreground">
                   <span>On-time</span>
@@ -529,10 +445,19 @@ export default function HomePage() {
           className="flex-1 p-4 md:min-h-0 md:overflow-y-auto md:overscroll-contain md:p-6 lg:p-8"
         >
           <div className="mx-auto flex max-w-[1280px] flex-col gap-5">
+            <MarketplaceHero market={market} onSeeWhy={seeWhy} />
+
             {/* Three columns */}
-            <div id="experience" className="scroll-mt-4 grid gap-5 lg:grid-cols-3">
+            <div className="scroll-mt-4 grid gap-5 lg:grid-cols-3">
               {/* LEFT — Worker */}
-              <motion.div {...fade}>
+              <motion.div
+                id="experience"
+                className={cn(
+                  "scroll-mt-4 rounded-xl transition-shadow",
+                  highlightExperience && "ring-2 ring-primary shadow-elevated",
+                )}
+                {...fade}
+              >
                 <Card className="relative h-full overflow-hidden">
                   <AnimatePresence>
                     {graduation ? (
@@ -748,7 +673,7 @@ export default function HomePage() {
                           <p className="text-sm">{result.nextBestAction}</p>
                         </div>
                         <motion.div
-                          key={`${impact.deltaPoints}-${impact.probabilityOfNextTier}-${money.weeklyUsd}`}
+                          key={`${impact.from}-${impact.to}-${impact.probFrom}-${impact.probTo}`}
                           initial={reduce ? false : { opacity: 0, y: 4 }}
                           animate={{ opacity: 1, y: 0 }}
                           className="rounded-lg border border-border bg-card px-3 py-2"
@@ -756,17 +681,36 @@ export default function HomePage() {
                           <p className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
                             Estimated impact · illustrative
                           </p>
-                          <p className="mt-1 text-sm font-semibold tabular text-primary">
-                            {impact.deltaPoints >= 0 ? "+" : ""}
-                            {impact.deltaPoints} Reliability → {impact.probabilityOfNextTier}% chance
-                            of {next ?? "Elite"}
+                          <p className="mt-1 text-sm leading-snug">
+                            <span className="font-medium">{impact.action}</span>
+                            {" takes you "}
+                            <motion.span
+                              key={`sc-${impact.from}-${impact.to}`}
+                              className="font-semibold tabular text-primary"
+                            >
+                              {impact.from} → {impact.to}
+                            </motion.span>
+                            <span className="tabular text-muted-foreground">
+                              {" "}
+                              ({impact.delta >= 0 ? "+" : ""}
+                              {impact.delta})
+                            </span>
+                            {" — "}
+                            <motion.span
+                              key={`pr-${impact.probFrom}-${impact.probTo}`}
+                              className="font-semibold tabular text-primary"
+                            >
+                              {impact.probFrom}% → {impact.probTo}%
+                            </motion.span>
+                            {" chance of "}
+                            {impact.nextTier ?? "staying Elite"}
+                            {"."}
                           </p>
                           {money.next ? (
                             <p className="mt-0.5 text-xs font-medium text-good">
                               Unlock ≈ +${money.weeklyUsd}/week
                             </p>
                           ) : null}
-                          <p className="mt-0.5 text-xs text-muted-foreground">{impact.action}</p>
                         </motion.div>
                         <p className="border-l-[3px] border-primary pl-2.5 text-xs leading-relaxed">
                           {result.coachNudge}
@@ -817,69 +761,17 @@ export default function HomePage() {
                 </Card>
               </motion.div>
 
-              {/* CENTER — Engine */}
-              <motion.div id="engine" className="scroll-mt-4" key={`engine-${result.score}`} {...fade}>
-                <Card className="h-full">
-                  <CardHeader>
-                    <div className="flex items-center gap-2">
-                      <CardTitle>Reliability engine</CardTitle>
-                      <Badge variant="engine">Explainability</Badge>
-                    </div>
-                  </CardHeader>
-                  <CardContent className="space-y-4">
-                    <div className="flex items-center justify-between gap-3 rounded-xl border border-border bg-muted/40 px-4 py-3">
-                      <div>
-                        <p className="text-xs text-muted-foreground">Live score</p>
-                        <p className="text-3xl font-semibold tabular tracking-tight">{result.score}</p>
-                      </div>
-                      <div className="text-right">
-                        <p className="text-xs text-muted-foreground">Next threshold</p>
-                        <p className="text-lg font-semibold tabular">{result.nextThreshold}</p>
-                      </div>
-                    </div>
-
-                    <div className="flex flex-wrap gap-2">
-                      {result.churnRisk.risk ? (
-                        <Badge variant="critical" className="gap-1 normal-case tracking-normal">
-                          <AlertTriangle className="h-3 w-3" />
-                          Churn risk · {result.churnRisk.reason}
-                        </Badge>
-                      ) : (
-                        <Badge variant="live">No churn flags</Badge>
-                      )}
-                      {result.tier === "Shadow" && result.pointsToNextTier <= 4 ? (
-                        <Badge variant="warn" className="gap-1 normal-case tracking-normal">
-                          <GraduationCap className="h-3 w-3" />
-                          Graduation-ready · {result.pointsToNextTier} pts to Pro
-                        </Badge>
-                      ) : null}
-                    </div>
-
-                    <div className="divide-y divide-border">
-                      {result.breakdown.map((row) => (
-                        <div key={row.label} className="grid grid-cols-[1fr_auto_auto] gap-x-3 gap-y-0.5 py-2.5 first:pt-0 last:pb-0">
-                          <span className="text-sm font-medium">{row.label}</span>
-                          <span className="text-xs tabular text-muted-foreground">
-                            {row.weightPct > 0 ? `${row.weightPct}%` : "—"}
-                          </span>
-                          <span
-                            className={cn(
-                              "min-w-10 text-right text-sm font-semibold tabular",
-                              row.points >= 0 ? "text-good" : "text-critical",
-                            )}
-                          >
-                            {row.points >= 0 ? "+" : ""}
-                            {row.points.toFixed(1)}
-                          </span>
-                          <span className="col-span-3 text-xs text-muted-foreground">{row.reason}</span>
-                        </div>
-                      ))}
-                    </div>
-                  </CardContent>
-                </Card>
+              {/* CENTER — Engine pipeline */}
+              <motion.div id="engine" className="scroll-mt-4" {...fade}>
+                <EnginePipeline
+                  signals={signals}
+                  result={result}
+                  market={market}
+                  pulseKey={`${selectedId}-${signals.onTimeRate}-${signals.acceptanceRate}-${signals.avgRating}-${signals.jobsCompleted}-${signals.lateCancellations}-${signals.noShows}-${signals.trainingBonus ?? 0}-${incentiveUsd}`}
+                />
               </motion.div>
 
-              {/* RIGHT — Marketplace */}
+              {/* RIGHT — Marketplace ops */}
               <motion.div
                 id="marketplace"
                 className="scroll-mt-4"
@@ -894,8 +786,6 @@ export default function HomePage() {
                     </div>
                   </CardHeader>
                   <CardContent className="space-y-5">
-                    <HealthRadial value={market.supplyHealth} />
-
                     <div>
                       <p className="mb-2 text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
                         Worker pipeline · {PIPELINE.dau.toLocaleString()} DAU
@@ -928,43 +818,6 @@ export default function HomePage() {
                             </p>
                           </div>
                         ))}
-                      </div>
-                    </div>
-
-                    <div>
-                      <p className="mb-2 text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
-                        Predicted supply issues
-                      </p>
-                      <div className="overflow-x-auto">
-                        <table className="w-full text-xs">
-                          <thead>
-                            <tr className="border-b border-border text-left text-[10px] uppercase tracking-wide text-muted-foreground">
-                              <th className="pb-2 pr-2 font-semibold">City</th>
-                              <th className="pb-2 pr-2 font-semibold">Slot</th>
-                              <th className="pb-2 pr-2 font-semibold">Demand</th>
-                              <th className="pb-2 pr-2 font-semibold">Supply</th>
-                              <th className="pb-2 font-semibold">Gap</th>
-                            </tr>
-                          </thead>
-                          <tbody>
-                            {SHORTAGES.map((s) => (
-                              <tr key={`${s.city}-${s.slot}`} className="border-b border-border last:border-0">
-                                <td className="py-2 pr-2">{s.city}</td>
-                                <td className="py-2 pr-2">{s.slot}</td>
-                                <td className="py-2 pr-2 tabular">{s.demand}</td>
-                                <td className="py-2 pr-2 tabular">{s.supply}</td>
-                                <td
-                                  className={cn(
-                                    "py-2 font-semibold tabular",
-                                    s.gap < 0 && "text-critical",
-                                  )}
-                                >
-                                  {s.gap}
-                                </td>
-                              </tr>
-                            ))}
-                          </tbody>
-                        </table>
                       </div>
                     </div>
 
