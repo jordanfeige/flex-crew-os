@@ -799,15 +799,17 @@ export default function HomePage() {
 
                     <Button
                       type="button"
-                      className="h-auto w-full flex-col items-start gap-0.5 py-3"
+                      className="h-auto w-full flex-col items-start gap-0.5 whitespace-normal px-3 py-3 text-left"
                       onClick={takeCourse}
                       disabled={training >= 6}
                     >
-                      <span className="flex items-center gap-2">
-                        <BookOpen className="h-4 w-4" />
-                        5-min furniture-handling course · +2 reliability
+                      <span className="flex w-full items-start gap-2">
+                        <BookOpen className="mt-0.5 h-4 w-4 shrink-0" />
+                        <span className="min-w-0 leading-snug">
+                          5-min furniture-handling course · +2 reliability
+                        </span>
                       </span>
-                      <span className="text-[11px] font-normal opacity-90">
+                      <span className="pl-6 text-[11px] font-normal leading-snug opacity-90">
                         Training bonus {training}/6{training >= 6 ? " · capped" : ""}
                       </span>
                     </Button>
