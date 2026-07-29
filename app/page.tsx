@@ -28,6 +28,11 @@ import {
   type Signals,
   type Tier,
 } from "@/lib/engine";
+import {
+  isJobBrief,
+  type JobBrief,
+  type JobBriefSource,
+} from "@/lib/jobBrief";
 import type { Review } from "@/lib/reviews";
 import { tierRank, TIER_ECONOMICS } from "@/lib/stickiness";
 import { buildWorkerProfile, matchScore } from "@/lib/worker";
@@ -59,10 +64,13 @@ function cloneSignals(s: Signals): Signals {
 const SEED_BOOKED =
   CAPABILITY_JOBS.find((j) => j.id === "job-move-2br") ?? CAPABILITY_JOBS[0];
 
-/** Always pull the catalog row so demo jobs keep walkthrough media. */
-function resolveCatalogJob(job: CapabilityJob): CapabilityJob {
-  return CAPABILITY_JOBS.find((j) => j.id === job.id) ?? job;
-}
+const STORED_BRIEFS_KEY = "flex:job-briefs:v1";
+
+type StoredBrief = {
+  jobBrief: JobBrief;
+  source: JobBriefSource;
+  generatedAt: string;
+};
 
 const NAV = [
   { href: "#marketplace-hero", label: "Marketplace", icon: TrendingUp },
@@ -127,9 +135,9 @@ export default function HomePage() {
   );
   const [highlightExperience, setHighlightExperience] = useState(false);
   const [reviews, setReviews] = useState<Review[]>(() => [...SEED_REVIEWS]);
+  const [jobs, setJobs] = useState<CapabilityJob[]>(() => [...CAPABILITY_JOBS]);
   const [clarityJob, setClarityJob] = useState<CapabilityJob | null>(null);
   const [detailMode, setDetailMode] = useState<JobDetailMode>("claimable");
-  const [detailMatch, setDetailMatch] = useState(0);
   const [bookedJob, setBookedJob] = useState<CapabilityJob | null>(SEED_BOOKED);
   const [ratingJob, setRatingJob] = useState<CapabilityJob | null>(null);
   /** Home | Progress — one worker home, two segments. */
@@ -144,6 +152,32 @@ export default function HomePage() {
   );
   const [vettingOpen, setVettingOpen] = useState(false);
   const [focusCapabilityId, setFocusCapabilityId] = useState<string | null>(null);
+
+  useEffect(() => {
+    try {
+      const raw = window.localStorage.getItem(STORED_BRIEFS_KEY);
+      if (!raw) return;
+      const stored = JSON.parse(raw) as Record<string, Partial<StoredBrief>>;
+      const mergeStored = (job: CapabilityJob): CapabilityJob => {
+        const value = stored[job.id];
+        if (!value || !isJobBrief(value.jobBrief)) return job;
+        return {
+          ...job,
+          jobBrief: value.jobBrief,
+          jobBriefSource: value.source === "ai" ? "ai" : "seed",
+          jobBriefGeneratedAt:
+            typeof value.generatedAt === "string"
+              ? value.generatedAt
+              : job.jobBriefGeneratedAt,
+        };
+      };
+
+      setJobs((current) => current.map(mergeStored));
+      setBookedJob((current) => (current ? mergeStored(current) : current));
+    } catch {
+      // Ignore malformed local demo state and keep the checked-in persisted seed.
+    }
+  }, []);
 
   function goTo(href: string) {
     setActiveNav(href);
@@ -177,7 +211,9 @@ export default function HomePage() {
     setGraduation(null);
     setClarityJob(null);
     setRatingJob(null);
-    setBookedJob(SEED_BOOKED);
+    setBookedJob(
+      jobs.find((job) => job.id === SEED_BOOKED.id) ?? SEED_BOOKED,
+    );
     setWorkerTab("home");
     setWeekEarnings(0);
     setClaimToast(null);
@@ -233,24 +269,25 @@ export default function HomePage() {
     [incentiveUsd, selectedId, signals],
   );
   const copilotRecs = useMemo(
-    () => evaluateCopilot(market, allProfiles, CAPABILITY_JOBS),
-    [market, allProfiles],
+    () => evaluateCopilot(market, allProfiles, jobs),
+    [market, allProfiles, jobs],
   );
   const next = nextTierName(result.tier);
   const training = signals.trainingBonus ?? 0;
-  /** Available near you — explainable match from shared WorkerProfile. */
+  /** Available near you — ranked by engine match; worker UI does not show %. */
   const availableJobs = useMemo(() => {
-    return [...CAPABILITY_JOBS]
+    return [...jobs]
       .filter((job) => job.id !== bookedJob?.id)
       .map((job) => ({ job, match: matchScore(workerProfile, job).score }))
       .sort((a, b) => {
-        const ca = a.job.clarity || a.job.media ? 1 : 0;
-        const cb = b.job.clarity || b.job.media ? 1 : 0;
+        const ca = a.job.clarity || a.job.media || a.job.jobBrief ? 1 : 0;
+        const cb = b.job.clarity || b.job.media || b.job.jobBrief ? 1 : 0;
         if (cb !== ca) return cb - ca;
         return b.match - a.match;
       })
-      .slice(0, 3);
-  }, [workerProfile, bookedJob?.id]);
+      .slice(0, 3)
+      .map(({ job }) => job);
+  }, [workerProfile, bookedJob?.id, jobs]);
   /** Luke: activation = first job completed (not onboarding). */
   const activated = signals.jobsCompleted >= 1;
   const weekGoal = 400 + TIER_ECONOMICS[result.tier].weeklyUsd;
@@ -272,16 +309,14 @@ export default function HomePage() {
   function openJobDetail(
     job: CapabilityJob,
     mode: JobDetailMode,
-    match = 0,
   ) {
-    const full = resolveCatalogJob(job);
+    const full = jobs.find((candidate) => candidate.id === job.id) ?? job;
     setDetailMode(mode);
-    setDetailMatch(match);
     setClarityJob(full);
   }
 
   function claimJob(job: CapabilityJob) {
-    const full = resolveCatalogJob(job);
+    const full = jobs.find((candidate) => candidate.id === job.id) ?? job;
     const pay = jobPayTotal(full);
     setBookedJob(full);
     setClarityJob(null);
@@ -289,6 +324,41 @@ export default function HomePage() {
     setWorkerTab("home");
     setClaimToast(`Move claimed · $${pay} — it's under Your next job`);
     window.setTimeout(() => setClaimToast(null), 3200);
+  }
+
+  function persistJobBrief(
+    jobId: string,
+    jobBrief: JobBrief,
+    metadata: { source: JobBriefSource; generatedAt: string },
+  ) {
+    const update = (job: CapabilityJob): CapabilityJob =>
+      job.id === jobId
+        ? {
+            ...job,
+            jobBrief,
+            jobBriefSource: metadata.source,
+            jobBriefGeneratedAt: metadata.generatedAt,
+          }
+        : job;
+
+    setJobs((current) => current.map(update));
+    setClarityJob((current) => (current ? update(current) : current));
+    setBookedJob((current) => (current ? update(current) : current));
+
+    try {
+      const raw = window.localStorage.getItem(STORED_BRIEFS_KEY);
+      const stored = raw
+        ? (JSON.parse(raw) as Record<string, StoredBrief>)
+        : {};
+      stored[jobId] = {
+        jobBrief,
+        source: metadata.source,
+        generatedAt: metadata.generatedAt,
+      };
+      window.localStorage.setItem(STORED_BRIEFS_KEY, JSON.stringify(stored));
+    } catch {
+      // The in-memory job remains updated if local storage is unavailable.
+    }
   }
 
   useEffect(() => {
@@ -671,9 +741,11 @@ export default function HomePage() {
                         <JobDetailScreen
                           job={clarityJob}
                           mode={detailMode}
-                          match={detailMatch}
                           onBack={() => setClarityJob(null)}
                           onClaim={() => claimJob(clarityJob)}
+                          onBriefPersist={(brief, metadata) =>
+                            persistJobBrief(clarityJob.id, brief, metadata)
+                          }
                         />
                       </motion.div>
                     ) : null}
@@ -705,13 +777,11 @@ export default function HomePage() {
                         bookedJob={bookedJob}
                         availableJobs={availableJobs}
                         nudge={homeNudge}
+                        incentiveUsd={incentiveUsd}
                         hideHeader
                         onOpenBooked={(job) => openJobDetail(job, "confirmed")}
                         onOpenAvailable={(job) => {
-                          const m =
-                            availableJobs.find((a) => a.job.id === job.id)?.match ??
-                            matchScore(workerProfile, job).score;
-                          openJobDetail(job, "claimable", m);
+                          openJobDetail(job, "claimable");
                         }}
                         onImproveCapability={(capId) => {
                           setFocusCapabilityId(capId);
@@ -722,7 +792,7 @@ export default function HomePage() {
                       <WorkerProgressTab
                         profile={workerProfile}
                         ptsLabel={ptsLabel}
-                        jobs={CAPABILITY_JOBS}
+                        jobs={jobs}
                         focusCapabilityId={focusCapabilityId}
                         training={training}
                         onTakeCourse={takeCourse}
@@ -797,7 +867,7 @@ export default function HomePage() {
               {/* RIGHT — Marketplace Copilot (ops) */}
               <motion.div
                 id="marketplace"
-                className="scroll-mt-4"
+                className="relative isolate flex min-h-0 flex-col scroll-mt-4"
                 key={`mkt-${market.supplyHealth}-${market.fillLift}`}
                 {...fade}
               >
@@ -809,7 +879,7 @@ export default function HomePage() {
                     goTo("#experience");
                   }}
                 />
-                <div className="mt-3 rounded-xl border border-border bg-card p-3 shadow-card">
+                <div className="relative isolate mt-3 overflow-hidden rounded-xl border border-border bg-card p-3 shadow-card">
                   <p className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
                     Incentive lever · feeds Copilot fill impact
                   </p>
@@ -841,7 +911,7 @@ export default function HomePage() {
 
             <CapabilityEngineSection
               profiles={allProfiles}
-              jobs={CAPABILITY_JOBS}
+              jobs={jobs}
               focusWorkerId={selectedId}
             />
           </div>

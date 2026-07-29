@@ -20,6 +20,8 @@ export type WorkerProfile = {
   avatar: string;
   tier: Tier;
   reliability: number;
+  /** Jobs completed — used for Recruit→Certified progress framing. */
+  jobsCompleted: number;
   capabilities: CapabilityProfile[];
   /** Earned capability ids — convenience for match/set overlap. */
   earnedCapabilityIds: Capability[];
@@ -79,6 +81,7 @@ export function buildWorkerProfile(
     avatar: worker.avatar,
     tier: scorePayload.tier,
     reliability: scorePayload.score,
+    jobsCompleted: signals.jobsCompleted,
     capabilities,
     earnedCapabilityIds: worker.capabilities,
     ratingsAvg: Math.round(ratingsAvg * 10) / 10,

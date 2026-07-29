@@ -17,7 +17,7 @@ export function MarketplaceCopilot({
   onSeeWorker?: (workerId: string) => void;
 }) {
   return (
-    <Card className="h-full">
+    <Card className="flex-1">
       <CardHeader>
         <div className="flex items-center gap-2">
           <CardTitle>Marketplace Copilot</CardTitle>

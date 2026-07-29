@@ -1,6 +1,11 @@
 import type { Capability, CapabilityJob, CapabilityWorker } from "@/lib/capabilities";
 import type { Review } from "@/lib/reviews";
 import { CREW } from "@/lib/data";
+import {
+  HERO_BOOKING_INPUTS,
+  HERO_JOB_ID,
+  HERO_SEED_BRIEF,
+} from "@/lib/job-brief-seeds";
 
 /** Extend crew with capabilities — jobs match on set overlap. */
 export const WORKER_CAPABILITIES: Record<string, Capability[]> = {
@@ -46,7 +51,7 @@ export function capabilityWorkerById(id: string): CapabilityWorker {
 }
 
 /** Flagship demo job — must keep walkthrough media for Luke's Job Clarity beat. */
-export const DEMO_JOB_ID = "job-move-2br";
+export const DEMO_JOB_ID = HERO_JOB_ID;
 
 /** 2–3 jobs per service — configuration, not new code paths. */
 export const CAPABILITY_JOBS: CapabilityJob[] = [
@@ -58,6 +63,13 @@ export const CAPABILITY_JOBS: CapabilityJob[] = [
     slot: "Sat AM",
     payUsd: 186,
     requires: ["heavy_lifting", "furniture_assembly", "driving"],
+    distanceMi: 4,
+    driveMin: 12,
+    estHoursWithTravel: 4.0,
+    bookingInputs: HERO_BOOKING_INPUTS,
+    jobBrief: HERO_SEED_BRIEF,
+    jobBriefSource: "seed",
+    jobBriefGeneratedAt: "2026-07-29T00:00:00.000Z",
     clarity: {
       overview: [
         "2-bedroom apartment",
@@ -124,6 +136,9 @@ export const CAPABILITY_JOBS: CapabilityJob[] = [
     slot: "Sun PM",
     payUsd: 124,
     requires: ["heavy_lifting", "packing", "driving"],
+    distanceMi: 6,
+    driveMin: 18,
+    estHoursWithTravel: 2.8,
     clarity: {
       overview: ["Small office", "Ground floor", "Loading dock"],
       keyFacts: ["Ground floor", "Loading dock", "Boxes + desks"],
@@ -220,6 +235,9 @@ export const CAPABILITY_JOBS: CapabilityJob[] = [
     slot: "Sun AM",
     payUsd: 132,
     requires: ["tv_mounting", "furniture_assembly"],
+    distanceMi: 3,
+    driveMin: 9,
+    estHoursWithTravel: 1.65,
     clarity: {
       overview: [
         "Living room wall mount",

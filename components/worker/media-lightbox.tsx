@@ -15,7 +15,7 @@ function formatDuration(sec: number): string {
   return `${m}:${s.toString().padStart(2, "0")}`;
 }
 
-/** Walkthrough source strip + lightbox — AI summary receipts. */
+/** Optional walkthrough attachment strip + lightbox (display-only). */
 export function WalkthroughMedia({
   media,
   openItem,
@@ -91,8 +91,8 @@ export function WalkthroughMedia({
         ) : null}
 
         <p className="mt-2 text-[11px] leading-snug text-muted-foreground">
-          AI built this summary from the customer&apos;s video — tap any clip or photo to
-          see it for yourself.
+          Customer walkthrough attached for reference. It is not used to
+          generate the text brief today.
         </p>
       </div>
 
@@ -160,8 +160,8 @@ function MediaLightbox({
                   </span>
                 </div>
                 <p className="px-4 py-3 text-sm text-muted-foreground">
-                  Customer walkthrough · demo placeholder — AI extracted tasks, heavy
-                  items, and risks from this clip.
+                  Customer walkthrough · display-only attachment. Vision
+                  extraction is the next step.
                 </p>
               </div>
             ) : (

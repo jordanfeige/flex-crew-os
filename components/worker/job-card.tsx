@@ -1,20 +1,34 @@
 "use client";
 
 import type { CapabilityJob } from "@/lib/capabilities";
-import { jobPayTotal } from "@/lib/capabilities";
+import { buildWorkerJobOffer } from "@/lib/job-value";
+import type { WorkerProfile } from "@/lib/worker";
 import { cn } from "@/lib/utils";
 
-/** Matched job row — shared by landing + engagement. */
+/**
+ * Compact matched job row — worker-value framing (pay/hr, schedule).
+ * Prefer WorkerHomeTab JobRow for the full phone experience.
+ */
 export function JobCard({
   job,
-  match,
+  profile,
+  weekEarnings,
+  weekGoal,
   onOpen,
 }: {
   job: CapabilityJob;
-  match: number;
+  profile: WorkerProfile;
+  weekEarnings: number;
+  weekGoal: number;
   onOpen: () => void;
 }) {
-  const pay = jobPayTotal(job);
+  const offer = buildWorkerJobOffer({
+    profile,
+    job,
+    weekEarnings,
+    weekGoal,
+  });
+
   return (
     <button
       type="button"
@@ -25,12 +39,20 @@ export function JobCard({
     >
       <div className="min-w-0">
         <p className="text-xs font-medium">{job.title}</p>
-        <p className="text-[11px] text-muted-foreground">
-          {job.city} · {job.slot} · Match {match}%
-          {job.clarity || job.media ? " · AI summary" : ""}
+        <p className="text-[11px] text-muted-foreground">{offer.scheduleLine}</p>
+        <p className="mt-0.5 text-[10px] font-medium text-muted-foreground">
+          {offer.qualified ? "✓ Qualified" : `Missing: ${offer.missingLabel}`}
+          {job.clarity || job.media || job.jobBrief ? " · AI Job Brief" : ""}
         </p>
       </div>
-      <span className="shrink-0 text-xs font-semibold tabular text-primary">${pay}</span>
+      <div className="shrink-0 text-right">
+        <span className="block text-xs font-semibold tabular text-primary">
+          ${offer.payUsd}
+        </span>
+        <span className="text-[10px] tabular text-muted-foreground">
+          ~${offer.effectiveHourly}/hr
+        </span>
+      </div>
     </button>
   );
 }

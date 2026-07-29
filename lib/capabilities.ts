@@ -1,4 +1,5 @@
 import type { Signals } from "./engine";
+import type { BookingInputs, JobBrief, JobBriefSource } from "./jobBrief";
 
 export type Service = "moving" | "cleaning" | "delivery" | "install";
 
@@ -71,6 +72,18 @@ export type CapabilityJob = {
   slot: string;
   payUsd: number;
   requires: Capability[];
+  /** Distance from worker — illustrative demo logistics. */
+  distanceMi?: number;
+  /** One-way drive minutes — folded into effective $/hr. */
+  driveMin?: number;
+  /** Job hours including travel when seeded; otherwise derived. */
+  estHoursWithTravel?: number;
+  /** Structured customer booking used by the server-side text pipeline. */
+  bookingInputs?: BookingInputs;
+  /** Persisted, schema-validated AI brief (or its demo-proof seed fallback). */
+  jobBrief?: JobBrief;
+  jobBriefSource?: JobBriefSource;
+  jobBriefGeneratedAt?: string;
   /** Optional clarity payload for Job Clarity screen */
   clarity?: JobClarity;
   /** Customer walkthrough source media — AI summary receipts */

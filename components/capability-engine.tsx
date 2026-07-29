@@ -95,7 +95,10 @@ export function CapabilityEngineSection({
   }
 
   return (
-    <Card id="capability-engine" className="scroll-mt-4 shadow-elevated">
+    <Card
+      id="capability-engine"
+      className="relative isolate scroll-mt-4 overflow-hidden shadow-elevated"
+    >
       <CardHeader className="space-y-3">
         <div className="flex flex-wrap items-center gap-2">
           <CardTitle>Capability Engine</CardTitle>

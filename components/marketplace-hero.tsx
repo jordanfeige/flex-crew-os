@@ -86,7 +86,7 @@ export function MarketplaceHero({
   return (
     <Card
       id="marketplace-hero"
-      className="scroll-mt-4 overflow-hidden border-border shadow-elevated"
+      className="relative isolate scroll-mt-4 overflow-hidden border-border shadow-elevated"
     >
       <CardContent className="grid gap-6 p-5 lg:grid-cols-[minmax(0,1.1fr)_minmax(0,1fr)] lg:gap-8 lg:p-6">
         <div className="flex flex-col gap-4 sm:flex-row sm:items-end sm:gap-6">

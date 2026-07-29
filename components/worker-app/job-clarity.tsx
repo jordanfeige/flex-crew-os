@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { motion, useReducedMotion } from "framer-motion";
 import {
   AlertTriangle,
@@ -11,11 +11,17 @@ import {
   MessageSquare,
   Navigation,
   Play,
+  RefreshCw,
   Weight,
   Wrench,
 } from "lucide-react";
 import type { CapabilityJob, JobClarity } from "@/lib/capabilities";
 import { CAPABILITY_LABEL, riskLabel, taskLabel } from "@/lib/capabilities";
+import {
+  isJobBrief,
+  type JobBrief,
+  type JobBriefSource,
+} from "@/lib/jobBrief";
 import { FactRow, FactSectionHeader } from "@/components/worker/fact-row";
 import {
   WalkthroughMedia,
@@ -33,8 +39,11 @@ type ResolvedClarity = JobClarity & {
 
 type SectionKey = "tasks" | "equipment" | "heavy" | "risks" | "access";
 
-function resolveClarity(job: CapabilityJob): ResolvedClarity {
-  const base: JobClarity = job.clarity ?? {
+function resolveClarity(
+  job: CapabilityJob,
+  persistedBrief: JobBrief | undefined,
+): ResolvedClarity {
+  const fallback: JobClarity = job.clarity ?? {
     overview: [`${job.title}`, `${job.city} · ${job.slot}`, "Standard access"],
     tasks: ["Protect floors", "Load truck", "Secure cargo", "Unload at destination"],
     equipment: ["Dolly", "Pads", "Straps"],
@@ -49,6 +58,19 @@ function resolveClarity(job: CapabilityJob): ResolvedClarity {
       premium: Math.round(job.payUsd * 0.12),
     },
   };
+  const base: JobClarity = persistedBrief
+    ? {
+        ...fallback,
+        overview: [persistedBrief.executiveSummary],
+        tasks: persistedBrief.tasks,
+        equipment: persistedBrief.equipment,
+        heavyItems: persistedBrief.heavyItems,
+        access: persistedBrief.accessNotes,
+        riskFlags: persistedBrief.riskFlags,
+        estimatedHours: persistedBrief.estDurationHours,
+        crewRequired: persistedBrief.crewSize,
+      }
+    : fallback;
 
   const durationRe = /\b(\d+(\.\d+)?)\s*-?\s*hour|\b~\d|\bhrs?\b/i;
   const overviewNoDuration = base.overview.filter((line) => !durationRe.test(line));
@@ -80,18 +102,27 @@ function resolveClarity(job: CapabilityJob): ResolvedClarity {
 export function JobDetailScreen({
   job,
   mode,
-  match,
   onBack,
   onClaim,
+  onBriefPersist,
 }: {
   job: CapabilityJob;
   mode: JobDetailMode;
-  match?: number;
   onBack: () => void;
   onClaim: () => void;
+  onBriefPersist?: (
+    brief: JobBrief,
+    metadata: { source: JobBriefSource; generatedAt: string },
+  ) => void;
 }) {
   const reduce = useReducedMotion();
-  const c = resolveClarity(job);
+  const [brief, setBrief] = useState<JobBrief | undefined>(job.jobBrief);
+  const [briefSource, setBriefSource] = useState<JobBriefSource>(
+    job.jobBriefSource ?? "seed",
+  );
+  const [regenerating, setRegenerating] = useState(false);
+  const [regenerateError, setRegenerateError] = useState<string | null>(null);
+  const c = resolveClarity(job, brief);
   const total = c.pay.base + c.pay.mileage + c.pay.premium;
   const [lightbox, setLightbox] = useState<LightboxItem | null>(null);
   const [claimedFlash, setClaimedFlash] = useState(false);
@@ -102,6 +133,12 @@ export function JobDetailScreen({
     risks: false,
     access: true,
   });
+
+  useEffect(() => {
+    setBrief(job.jobBrief);
+    setBriefSource(job.jobBriefSource ?? "seed");
+    setRegenerateError(null);
+  }, [job.id, job.jobBrief, job.jobBriefSource]);
 
   function toggle(key: SectionKey) {
     setOpen((prev) => ({ ...prev, [key]: !prev[key] }));
@@ -117,6 +154,45 @@ export function JobDetailScreen({
   function handleClaim() {
     setClaimedFlash(true);
     window.setTimeout(() => onClaim(), 1400);
+  }
+
+  async function regenerateBrief() {
+    if (!job.bookingInputs || regenerating) return;
+
+    setRegenerating(true);
+    setRegenerateError(null);
+
+    try {
+      const response = await fetch("/api/job-brief", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ jobId: job.id, inputs: job.bookingInputs }),
+      });
+
+      if (!response.ok) {
+        throw new Error(`Job Brief request failed (${response.status})`);
+      }
+
+      const nextBrief: unknown = await response.json();
+      if (!isJobBrief(nextBrief)) {
+        throw new Error("Job Brief response did not match the schema");
+      }
+
+      const source =
+        response.headers.get("X-Job-Brief-Source") === "ai" ? "ai" : "seed";
+      const generatedAt =
+        response.headers.get("X-Job-Brief-Generated-At") ??
+        new Date().toISOString();
+
+      setBrief(nextBrief);
+      setBriefSource(source);
+      onBriefPersist?.(nextBrief, { source, generatedAt });
+    } catch {
+      // Keep the persisted brief visible; the demo never falls into a blank state.
+      setRegenerateError("Couldn’t refresh right now. Showing the saved brief.");
+    } finally {
+      setRegenerating(false);
+    }
   }
 
   if (claimedFlash) {
@@ -138,24 +214,54 @@ export function JobDetailScreen({
     );
   }
 
-  const matchStrong = (match ?? 0) >= 90;
-
   return (
     <div className="fx-detail">
       <div className="fx-dhead">
         <button type="button" className="fx-dback" onClick={onBack} aria-label="Back">
           <ArrowLeft className="h-4 w-4" />
         </button>
-        <div>
+        <div className="min-w-0 flex-1">
           <div className="fx-dttl">Move Summary</div>
           <div className="fx-daitag">
             <span className="sp">✦</span>
-            AI summary from the customer&apos;s walkthrough
+            AI Job Brief from the customer&apos;s booking
           </div>
         </div>
+        {job.bookingInputs ? (
+          <button
+            type="button"
+            onClick={regenerateBrief}
+            disabled={regenerating}
+            className="mt-0.5 inline-flex shrink-0 items-center gap-1 rounded-md px-1.5 py-1 text-[10px] font-semibold text-[var(--flex)] transition-colors hover:bg-[var(--flex-tint)] disabled:opacity-60"
+          >
+            <RefreshCw
+              className={cn("h-3 w-3", regenerating && "animate-spin")}
+            />
+            {regenerating ? "Generating…" : "Regenerate with AI"}
+          </button>
+        ) : null}
       </div>
 
       <div className="fx-dbody">
+        {regenerating ? (
+          <div
+            className="fx-sec animate-pulse"
+            aria-live="polite"
+            aria-label="Generating a fresh AI Job Brief"
+          >
+            <div className="h-2.5 w-36 rounded bg-muted" />
+            <div className="mt-2 h-2 w-full rounded bg-muted" />
+            <div className="mt-1.5 h-2 w-4/5 rounded bg-muted" />
+          </div>
+        ) : null}
+        {regenerateError ? (
+          <p
+            className="mb-3 rounded-lg bg-warn-tint px-3 py-2 text-[11px] text-warn"
+            role="status"
+          >
+            {regenerateError}
+          </p>
+        ) : null}
         <div className="fx-dhero">
           <div className="name">{job.title}</div>
           <div className="sub">
@@ -164,18 +270,14 @@ export function JobDetailScreen({
           {mode === "confirmed" ? (
             <span className="stat">✓ Confirmed</span>
           ) : (
-            <span
-              className={cn(
-                "stat",
-                matchStrong ? "match-ok" : "match-partial",
-              )}
-            >
-              Match {match ?? 0}%
-            </span>
+            <span className="stat match-ok">✓ Claimable</span>
           )}
           <div className="row2">
             <div className="aigen">
-              ✦ AI-generated from the customer&apos;s inputs
+              ✦{" "}
+              {briefSource === "ai"
+                ? "AI-generated from the customer’s structured inputs"
+                : "Saved brief from the customer’s structured inputs"}
               <div style={{ marginTop: 6 }} className="fx-tabular">
                 {c.estimatedHours} hrs est. · Crew of {c.crewRequired}
               </div>
@@ -185,6 +287,11 @@ export function JobDetailScreen({
               <div className="n">${total}</div>
             </div>
           </div>
+          {brief?.executiveSummary ? (
+            <p className="mt-3 text-[12px] leading-snug text-[var(--muted)]">
+              {brief.executiveSummary}
+            </p>
+          ) : null}
           {job.requires.length > 0 ? (
             <div style={{ marginTop: 10, display: "flex", flexWrap: "wrap", gap: 6 }}>
               {job.requires.map((req) => (
@@ -222,8 +329,8 @@ export function JobDetailScreen({
               }}
             >
               <span style={{ color: "var(--flex)" }}>✦</span>
-              AI built this from the customer&apos;s video — tap any clip or photo to
-              verify.
+              Walkthrough attached for reference. Video and photos are
+              display-only today.
             </p>
           </div>
         ) : (

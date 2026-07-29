@@ -248,7 +248,7 @@
 /* Job card */
 .fx-job {
   display: flex;
-  align-items: center;
+  align-items: flex-start;
   gap: 12px;
   padding: 13px 14px;
   background: var(--card);
@@ -278,6 +278,7 @@
   font-size: 15px;
   font-weight: 700;
   flex-shrink: 0;
+  margin-top: 1px;
 }
 .fx-job .mid {
   flex: 1;
@@ -291,11 +292,32 @@
   font-size: 12px;
   color: var(--muted);
   margin-top: 2px;
+  line-height: 1.35;
+}
+.fx-job .prog {
+  font-size: 11px;
+  color: var(--ink);
+  margin-top: 4px;
+  line-height: 1.35;
+  font-weight: 500;
+}
+.fx-job .surge {
+  font-size: 11px;
+  font-weight: 700;
+  color: #c2410c;
+  margin-top: 3px;
+}
+.fx-job .bundle {
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--flex);
+  margin-top: 3px;
+  line-height: 1.35;
 }
 .fx-job .meta {
   display: flex;
   gap: 6px;
-  margin-top: 5px;
+  margin-top: 6px;
   flex-wrap: wrap;
 }
 .fx-tag {
@@ -322,21 +344,36 @@
   background: var(--green-bg);
   color: var(--green);
 }
+.fx-job .paycol {
+  flex-shrink: 0;
+  text-align: right;
+  padding-top: 1px;
+}
 .fx-job .pay {
+  display: block;
   font-size: 15px;
   font-weight: 800;
   color: var(--flex);
   font-variant-numeric: tabular-nums;
-  flex-shrink: 0;
+  line-height: 1.1;
+}
+.fx-job .hr {
+  display: block;
+  margin-top: 2px;
+  font-size: 10.5px;
+  font-weight: 600;
+  color: var(--muted);
+  font-variant-numeric: tabular-nums;
 }
 .fx-chev {
   color: var(--faint);
   font-size: 18px;
   flex-shrink: 0;
   line-height: 1;
+  margin-top: 4px;
 }
 
-/* Job card shell that embeds Why-matched */
+/* Job card shell — coaching sits under the tappable row */
 .fx-job-shell {
   background: var(--card);
   border: 1px solid var(--line);
@@ -348,6 +385,23 @@
   margin-bottom: 0;
   border: 0;
   border-radius: 0;
+}
+.fx-job-coach {
+  display: block;
+  width: 100%;
+  border: 0;
+  border-top: 1px solid var(--line);
+  background: var(--amber-bg);
+  color: var(--amber);
+  font-size: 11.5px;
+  font-weight: 700;
+  text-align: left;
+  padding: 8px 14px 9px;
+  cursor: pointer;
+  font-family: inherit;
+}
+.fx-job-coach:active {
+  filter: brightness(0.97);
 }
 
 .fx-nudge {
@@ -490,57 +544,6 @@
   display: block;
   height: 100%;
   border-radius: 5px;
-}
-
-/* Why matched — expands inside white job card */
-.fx-why {
-  background: var(--card);
-}
-.fx-why-h {
-  display: flex;
-  width: 100%;
-  align-items: center;
-  gap: 6px;
-  padding: 10px 14px;
-  border: 0;
-  border-top: 1px solid var(--line);
-  background: var(--card);
-  font-family: inherit;
-  cursor: pointer;
-  text-align: left;
-  color: var(--flex);
-}
-.fx-why-h.open {
-  background: var(--flex-bg);
-}
-.fx-why-h .lbl {
-  flex: 1;
-  font-size: 11px;
-  font-weight: 700;
-}
-.fx-why-h .chev {
-  color: var(--flex);
-  transition: transform 0.15s;
-  display: flex;
-}
-.fx-why-h .chev.open {
-  transform: rotate(180deg);
-}
-.fx-why-body {
-  border-top: 1px solid var(--line);
-  padding: 8px 14px 12px;
-  background: var(--card);
-}
-.fx-why-row {
-  display: flex;
-  align-items: flex-start;
-  justify-content: space-between;
-  gap: 8px;
-  padding: 8px 0;
-  font-size: 12px;
-}
-.fx-why-row + .fx-why-row {
-  border-top: 1px solid #f1f2f4;
 }
 
 /* Locked / not earned */

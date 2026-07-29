@@ -2,9 +2,8 @@
 
 import { Check, ChevronRight, Sparkles } from "lucide-react";
 import type { CapabilityJob } from "@/lib/capabilities";
-import { jobPayTotal } from "@/lib/capabilities";
+import { buildWorkerJobOffer } from "@/lib/job-value";
 import type { WorkerProfile } from "@/lib/worker";
-import { WhyMatched } from "@/components/worker/why-matched";
 import { tierPillClass } from "@/components/worker/tier";
 import { cn } from "@/lib/utils";
 
@@ -16,6 +15,7 @@ export function WorkerHomeTab({
   bookedJob,
   availableJobs,
   nudge,
+  incentiveUsd = 15,
   onOpenBooked,
   onOpenAvailable,
   onImproveCapability,
@@ -26,8 +26,10 @@ export function WorkerHomeTab({
   weekEarnings: number;
   weekGoal: number;
   bookedJob: CapabilityJob | null;
-  availableJobs: { job: CapabilityJob; match: number }[];
+  /** Ranked nearby jobs — match stays engine-side only. */
+  availableJobs: CapabilityJob[];
   nudge: string;
+  incentiveUsd?: number;
   onOpenBooked: (job: CapabilityJob) => void;
   onOpenAvailable: (job: CapabilityJob) => void;
   onImproveCapability?: (capabilityId: string, moduleId?: string) => void;
@@ -73,6 +75,10 @@ export function WorkerHomeTab({
           job={bookedJob}
           mode="confirmed"
           profile={profile}
+          weekEarnings={weekEarnings}
+          weekGoal={weekGoal}
+          nearbyJobs={availableJobs}
+          incentiveUsd={incentiveUsd}
           onOpen={() => onOpenBooked(bookedJob)}
           onImprove={onImproveCapability}
         />
@@ -83,13 +89,16 @@ export function WorkerHomeTab({
       )}
 
       <div className="fx-lbl">Available near you</div>
-      {availableJobs.map(({ job, match }) => (
+      {availableJobs.map((job) => (
         <JobRow
           key={job.id}
           job={job}
           mode="claimable"
-          match={match}
           profile={profile}
+          weekEarnings={weekEarnings}
+          weekGoal={weekGoal}
+          nearbyJobs={availableJobs}
+          incentiveUsd={incentiveUsd}
           onOpen={() => onOpenAvailable(job)}
           onImprove={onImproveCapability}
         />
@@ -106,57 +115,88 @@ export function WorkerHomeTab({
 function JobRow({
   job,
   mode,
-  match,
   profile,
+  weekEarnings,
+  weekGoal,
+  nearbyJobs,
+  incentiveUsd,
   onOpen,
   onImprove,
 }: {
   job: CapabilityJob;
   mode: "confirmed" | "claimable";
-  match?: number;
   profile: WorkerProfile;
+  weekEarnings: number;
+  weekGoal: number;
+  nearbyJobs: CapabilityJob[];
+  incentiveUsd: number;
   onOpen: () => void;
   onImprove?: (capabilityId: string, moduleId?: string) => void;
 }) {
-  const pay = jobPayTotal(job);
-  const strong = (match ?? 0) >= 90;
-
-  const row = (
-    <button type="button" className="fx-job" onClick={onOpen}>
-      <div className="ic">Fx</div>
-      <div className="mid">
-        <div className="t">{job.title}</div>
-        <div className="s">
-          {job.city} · {job.slot}
-        </div>
-        <div className="meta">
-          {mode === "confirmed" ? (
-            <span className="fx-tag conf">
-              <Check className="mr-0.5 inline h-2.5 w-2.5" /> Confirmed
-            </span>
-          ) : (
-            <span className={cn("fx-tag", strong ? "m100" : "m50")}>
-              Match {match}%
-            </span>
-          )}
-          <span className="fx-tag ai">
-            <Sparkles className="mr-0.5 inline h-2.5 w-2.5" /> AI Job Brief
-          </span>
-        </div>
-      </div>
-      <span className="pay">${pay}</span>
-      <span className="fx-chev">
-        <ChevronRight className="h-4 w-4" />
-      </span>
-    </button>
-  );
-
-  if (mode !== "claimable") return row;
+  const offer = buildWorkerJobOffer({
+    profile,
+    job,
+    weekEarnings,
+    weekGoal,
+    nearbyJobs,
+    incentiveUsd,
+  });
 
   return (
-    <div className="fx-job-shell">
-      {row}
-      <WhyMatched profile={profile} job={job} onImprove={onImprove} />
+    <div className={cn("fx-job-shell", mode === "claimable" && !offer.qualified && "has-gap")}>
+      <button type="button" className="fx-job" onClick={onOpen}>
+        <div className="ic">Fx</div>
+        <div className="mid">
+          <div className="t">{job.title}</div>
+          <div className="s">{offer.scheduleLine}</div>
+          {mode === "claimable" ? (
+            <div className="prog">{offer.progressLine}</div>
+          ) : null}
+          {offer.incentive ? (
+            <div className="surge">🔥 {offer.incentive.label}</div>
+          ) : null}
+          {mode === "claimable" && offer.bundleWith ? (
+            <div className="bundle">
+              Pairs with a nearby job → +${offer.bundleWith.payUsd}
+            </div>
+          ) : null}
+          <div className="meta">
+            {mode === "confirmed" ? (
+              <span className="fx-tag conf">
+                <Check className="mr-0.5 inline h-2.5 w-2.5" /> Confirmed
+              </span>
+            ) : offer.qualified ? (
+              <span className="fx-tag m100">
+                <Check className="mr-0.5 inline h-2.5 w-2.5" /> Qualified
+              </span>
+            ) : (
+              <span className="fx-tag m50">Missing: {offer.missingLabel}</span>
+            )}
+            <span className="fx-tag ai">
+              <Sparkles className="mr-0.5 inline h-2.5 w-2.5" /> AI Job Brief
+            </span>
+          </div>
+        </div>
+        <div className="paycol">
+          <span className="pay">${offer.payUsd}</span>
+          <span className="hr">~${offer.effectiveHourly}/hr</span>
+        </div>
+        <span className="fx-chev">
+          <ChevronRight className="h-4 w-4" />
+        </span>
+      </button>
+      {mode === "claimable" && offer.coachingLine && offer.missing[0] ? (
+        <button
+          type="button"
+          className="fx-job-coach"
+          onClick={(e) => {
+            e.stopPropagation();
+            onImprove?.(offer.missing[0]);
+          }}
+        >
+          {offer.coachingLine}
+        </button>
+      ) : null}
     </div>
   );
 }
