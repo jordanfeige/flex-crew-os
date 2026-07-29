@@ -118,7 +118,7 @@ export function MarketplaceHero({
                 week
               </span>
             </p>
-            <div className="rounded-lg border border-border bg-muted/40 px-3 py-2.5">
+            <div className="rounded-lg border border-[var(--flex)]/20 bg-[var(--flex-bg)] px-3 py-2.5">
               <p className="text-sm leading-snug">
                 <span className="font-medium text-muted-foreground">Primary driver: </span>
                 <span className="font-medium text-foreground">

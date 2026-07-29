@@ -83,7 +83,7 @@ export function WorkerProgressTab({
         </div>
       ) : null}
 
-      <div className="fx-lbl">Capability profile</div>
+      <div className="fx-lbl">Your skills · reliability score (0–100)</div>
       <CapabilityProfileSection
         profile={profile}
         jobs={jobs}

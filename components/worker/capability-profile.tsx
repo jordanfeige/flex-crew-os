@@ -12,6 +12,7 @@ import type { CapabilityJob } from "@/lib/capabilities";
 import {
   PROFICIENCY_LABEL,
   jobsUnlockedBy,
+  reliabilityBand,
   type CapabilityProfile,
 } from "@/lib/capability-profile";
 import { COACHING_MODULES } from "@/lib/coaching";
@@ -35,6 +36,7 @@ export function CapabilityProfileSection({
   const earned = profile.capabilities.filter((c) => c.earned);
   const locked = profile.capabilities.filter((c) => !c.earned);
   const [openId, setOpenId] = useState<string | null>(earned[0]?.id ?? null);
+  const ratedJobs = profile.ratingsCount;
 
   useEffect(() => {
     if (focusCapabilityId) setOpenId(focusCapabilityId);
@@ -42,14 +44,10 @@ export function CapabilityProfileSection({
 
   return (
     <div className="space-y-3">
-      <div className="flex items-center justify-between gap-2">
-        <p className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
-          Capability profile
-        </p>
-        <span className="text-[10px] text-muted-foreground">
-          {earned.length} earned · shared with matching
-        </span>
-      </div>
+      <p className="text-[11px] leading-snug text-muted-foreground">
+        Elite 90–100 · Solid 75–89 · Building &lt;75 · earned from your{" "}
+        {ratedJobs} rated job{ratedJobs === 1 ? "" : "s"}.
+      </p>
 
       <div className="space-y-1.5">
         {earned.map((cap) => (
@@ -126,7 +124,11 @@ function CapabilityRow({
   const coach = cap.coachingModuleId
     ? COACHING_MODULES[cap.coachingModuleId]
     : null;
-  const strong = (cap.proficiency ?? 0) >= 2;
+  const band = reliabilityBand(cap.reliabilityScore);
+  const bandLabel = band ?? PROFICIENCY_LABEL[cap.proficiency];
+  const elite = band === "Elite";
+  const solid = band === "Solid";
+  const building = band === "Building" || (!band && cap.earned);
 
   return (
     <div className="overflow-hidden rounded-xl border border-border bg-card shadow-card">
@@ -143,18 +145,17 @@ function CapabilityRow({
               <span className="inline-flex items-center gap-0.5 rounded-full bg-good-tint px-1.5 py-0.5 text-[10px] font-semibold text-good">
                 <BadgeCheck className="h-2.5 w-2.5" /> Verified
               </span>
-            ) : (
-              <span className="rounded-full bg-warn-tint px-1.5 py-0.5 text-[10px] font-semibold text-warn">
-                Proving
-              </span>
-            )}
+            ) : null}
             <span
               className={cn(
                 "rounded-full px-1.5 py-0.5 text-[10px] font-semibold",
-                strong ? "bg-good-tint text-good" : "bg-warn-tint text-warn",
+                elite && "bg-good-tint text-good",
+                solid && "bg-[var(--flex-bg)] text-[var(--flex)]",
+                building && "bg-warn-tint text-warn",
+                !band && !cap.earned && "bg-muted text-muted-foreground",
               )}
             >
-              {PROFICIENCY_LABEL[cap.proficiency]}
+              {bandLabel}
             </span>
           </div>
           <div className="mt-1.5 h-1.5 overflow-hidden rounded-full bg-muted">
@@ -162,7 +163,11 @@ function CapabilityRow({
               className="h-full rounded-full"
               style={{
                 width: `${cap.reliabilityScore ?? 0}%`,
-                background: strong ? "var(--good)" : "var(--warn)",
+                background: elite
+                  ? "var(--good)"
+                  : solid
+                    ? "var(--flex)"
+                    : "var(--warn)",
               }}
             />
           </div>

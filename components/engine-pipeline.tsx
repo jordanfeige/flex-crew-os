@@ -148,7 +148,7 @@ export function EnginePipeline({
         {/* Signals */}
         <div
           className={cn(
-            "rounded-xl border border-border bg-muted/30 p-3 transition-shadow",
+            "rounded-xl border border-[var(--flex)]/20 bg-[var(--flex-bg)] p-3 transition-shadow",
             phase === "signals" && "shadow-elevated ring-1 ring-primary/30",
           )}
         >

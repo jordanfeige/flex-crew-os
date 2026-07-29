@@ -45,6 +45,9 @@ export function capabilityWorkerById(id: string): CapabilityWorker {
   return all.find((w) => w.id === id) ?? all[0];
 }
 
+/** Flagship demo job — must keep walkthrough media for Luke's Job Clarity beat. */
+export const DEMO_JOB_ID = "job-move-2br";
+
 /** 2–3 jobs per service — configuration, not new code paths. */
 export const CAPABILITY_JOBS: CapabilityJob[] = [
   {
@@ -121,6 +124,39 @@ export const CAPABILITY_JOBS: CapabilityJob[] = [
     slot: "Sun PM",
     payUsd: 124,
     requires: ["heavy_lifting", "packing", "driving"],
+    clarity: {
+      overview: ["Small office", "Ground floor", "Loading dock"],
+      keyFacts: ["Ground floor", "Loading dock", "Boxes + desks"],
+      tasks: ["Pack desk drawers", "Protect glass partitions", "Load dock"],
+      equipment: ["Dolly", "Pads", "Bins"],
+      heavyItems: ["Standing desks"],
+      access: ["Loading dock", "Street parking"],
+      riskFlags: ["Tight elevator if dock full"],
+      estimatedHours: 2.5,
+      crewRequired: 2,
+      confidencePct: 82,
+      pay: { base: 98, mileage: 12, premium: 14 },
+    },
+    media: {
+      video: {
+        url: "https://storage.googleapis.com/gtv-videos-bucket/sample/ForBiggerBlazes.mp4",
+        durationSec: 15,
+        poster:
+          "https://images.unsplash.com/photo-1497366216548-37526070297c?w=800&q=80&auto=format&fit=crop",
+      },
+      photos: [
+        {
+          id: "ph-office-1",
+          url: "https://images.unsplash.com/photo-1497366811353-6870744d04b2?w=600&q=80&auto=format&fit=crop",
+          caption: "Open office · desks to clear",
+        },
+        {
+          id: "ph-office-2",
+          url: "https://images.unsplash.com/photo-1497215842964-222b430dc094?w=600&q=80&auto=format&fit=crop",
+          caption: "Loading dock staging",
+        },
+      ],
+    },
   },
   {
     id: "job-move-studio",

@@ -13,10 +13,12 @@
   --risk: #b42318;
   --risk-bg: #fef3f2;
   --ink: #111827;
-  --muted: #6b7280;
-  --faint: #9aa1ab;
-  --line: #e5e7eb;
-  --canvas: #f4f5f7;
+  --muted: #5b6578;
+  --faint: #8b95a8;
+  --line: #dce3f0;
+  /* Soft Flex wash — replaces flat gray canvas */
+  --canvas: #eef3fc;
+  --canvas-2: #e4ebf8;
   --card: #ffffff;
   --bronze: #8a5a2b;
   --bronze-bg: #f4ece2;
@@ -26,11 +28,11 @@
   --platinum: #6b7280;
   --r: 16px;
   /* Map design-system aliases → prototype */
-  --background: #f4f5f7;
+  --background: #e8eef9;
   --foreground: #111827;
-  --muted-foreground: #6b7280;
-  --border: #e5e7eb;
-  --input: #e5e7eb;
+  --muted-foreground: #5b6578;
+  --border: #dce3f0;
+  --input: #dce3f0;
   --primary: #2260f9;
   --primary-foreground: #ffffff;
   --accent: #eaf1ff;

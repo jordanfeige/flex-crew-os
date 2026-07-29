@@ -150,8 +150,7 @@ export function JobDetailScreen({
           <div className="fx-dttl">Move Summary</div>
           <div className="fx-daitag">
             <span className="sp">✦</span>
-            From structured inputs
-            {job.media ? " + optional video" : ""} · {c.confidencePct}% confidence
+            AI-generated from the customer&apos;s inputs.
           </div>
         </div>
       </div>
@@ -177,26 +176,23 @@ export function JobDetailScreen({
             {job.city} · {job.slot}
           </div>
           <div className="row2">
-            <div>
-              <div className="l">Confidence</div>
-              <div className="n">{c.confidencePct}%</div>
+            <div
+              style={{
+                fontSize: 12,
+                color: "var(--muted)",
+                display: "flex",
+                flexDirection: "column",
+                gap: 4,
+                justifyContent: "flex-end",
+              }}
+            >
+              <span className="fx-tabular">{c.estimatedHours} hrs est.</span>
+              <span className="fx-tabular">Crew of {c.crewRequired}</span>
             </div>
             <div className="earnb">
               <div className="l">You earn</div>
               <div className="n">${total}</div>
             </div>
-          </div>
-          <div
-            style={{
-              marginTop: 10,
-              fontSize: 12,
-              color: "var(--muted)",
-              display: "flex",
-              gap: 12,
-            }}
-          >
-            <span className="fx-tabular">{c.estimatedHours} hrs est.</span>
-            <span className="fx-tabular">Crew of {c.crewRequired}</span>
           </div>
           {job.requires.length > 0 ? (
             <div style={{ marginTop: 10, display: "flex", flexWrap: "wrap", gap: 6 }}>
@@ -209,7 +205,8 @@ export function JobDetailScreen({
           ) : null}
         </div>
 
-        {job.media ? (
+        {job.media &&
+        (job.media.video || job.media.photos.length > 0) ? (
           <div className="fx-sec">
             <div className="fx-sec-h" style={{ cursor: "default" }}>
               <Play className="h-3.5 w-3.5 text-[var(--flex)]" />

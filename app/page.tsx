@@ -66,6 +66,11 @@ function cloneSignals(s: Signals): Signals {
 const SEED_BOOKED =
   CAPABILITY_JOBS.find((j) => j.id === "job-move-2br") ?? CAPABILITY_JOBS[0];
 
+/** Always pull the catalog row so demo jobs keep walkthrough media. */
+function resolveCatalogJob(job: CapabilityJob): CapabilityJob {
+  return CAPABILITY_JOBS.find((j) => j.id === job.id) ?? job;
+}
+
 const NAV = [
   { href: "#marketplace-hero", label: "Marketplace", icon: TrendingUp },
   { href: "#simulator", label: "Simulator", icon: Radio },
@@ -276,14 +281,16 @@ export default function HomePage() {
     mode: JobDetailMode,
     match = 0,
   ) {
+    const full = resolveCatalogJob(job);
     setDetailMode(mode);
     setDetailMatch(match);
-    setClarityJob(job);
+    setClarityJob(full);
   }
 
   function claimJob(job: CapabilityJob) {
-    const pay = jobPayTotal(job);
-    setBookedJob(job);
+    const full = resolveCatalogJob(job);
+    const pay = jobPayTotal(full);
+    setBookedJob(full);
     setClarityJob(null);
     setWeekEarnings((e) => e + pay);
     setWorkerTab("home");

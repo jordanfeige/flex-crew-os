@@ -75,9 +75,9 @@ const CAPABILITY_META: Record<
 export function proficiencyFromScore(score: number | null, earned: boolean): 0 | 1 | 2 | 3 {
   if (!earned) return 0;
   if (score == null) return 1;
-  if (score >= 88) return 3;
-  if (score >= 72) return 2;
-  return 1;
+  if (score >= 90) return 3; // Elite
+  if (score >= 75) return 2; // Solid
+  return 1; // Building
 }
 
 export function buildCapabilityProfile(
@@ -151,7 +151,15 @@ export function serviceNamesForCapability(cap: Capability): string {
 
 export const PROFICIENCY_LABEL: Record<0 | 1 | 2 | 3, string> = {
   0: "None",
-  1: "Emerging",
+  1: "Building",
   2: "Solid",
   3: "Elite",
 };
+
+/** Score-band label from reliability (0–100). Matches badge copy. */
+export function reliabilityBand(score: number | null): "Elite" | "Solid" | "Building" | null {
+  if (score == null) return null;
+  if (score >= 90) return "Elite";
+  if (score >= 75) return "Solid";
+  return "Building";
+}
