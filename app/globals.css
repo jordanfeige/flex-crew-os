@@ -1,5 +1,6 @@
 @import "tailwindcss";
 @import "tw-animate-css";
+@import "./worker-prototype.css";
 
 @theme {
   --color-background: var(--background);
@@ -29,8 +30,8 @@
   --color-gold: var(--gold);
   --color-platinum: var(--platinum);
   --color-flex: var(--flex);
-  --color-flex-dark: var(--flex-dark);
-  --color-flex-tint: var(--flex-tint);
+  --color-flex-dark: var(--flex-d);
+  --color-flex-tint: var(--flex-bg);
   --radius-sm: calc(var(--radius) - 4px);
   --radius-md: calc(var(--radius) - 2px);
   --radius-lg: var(--radius);
@@ -38,44 +39,6 @@
   --shadow-card: var(--shadow-card);
   --shadow-elevated: var(--shadow-elevated);
   --font-sans: var(--font-inter), ui-sans-serif, system-ui, sans-serif;
-}
-
-:root {
-  color-scheme: light;
-  --background: #f7f8f7;
-  --foreground: #0b1210;
-  --card: #ffffff;
-  --muted: #f0f2f0;
-  --muted-foreground: #5a6760;
-  --border: #e4e9e5;
-  --input: #e4e9e5;
-  /* Flex brand */
-  --flex: #2260f9;
-  --flex-dark: #1747c0;
-  --flex-tint: #eaf1ff;
-  --primary: #2260f9;
-  --primary-foreground: #ffffff;
-  --accent: #eaf1ff;
-  --accent-foreground: #1747c0;
-  --ring: #2260f9;
-  --brand: #2260f9;
-  --radius: 0.75rem;
-  --shadow-card: 0 1px 2px rgba(11, 18, 16, 0.04), 0 1px 3px rgba(11, 18, 16, 0.06);
-  --shadow-elevated: 0 4px 12px rgba(11, 18, 16, 0.08), 0 2px 4px rgba(11, 18, 16, 0.04);
-  --good: #2e7d32;
-  --good-tint: #e8f5ec;
-  --warn: #9a6700;
-  --warn-tint: #fff8e6;
-  --critical: #b3261e;
-  --critical-tint: #fdecec;
-  /* Metal loyalty ladder */
-  --bronze: #b87333;
-  --silver: #8a939e;
-  --gold: #c9a227;
-  --platinum: #6b7280;
-  --sidebar: #ffffff;
-  --sidebar-border: #e4e9e5;
-  --sidebar-accent: #eaf1ff;
 }
 
 @layer base {

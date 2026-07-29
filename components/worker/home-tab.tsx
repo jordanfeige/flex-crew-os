@@ -4,10 +4,16 @@ import { Check, ChevronRight, Sparkles } from "lucide-react";
 import type { CapabilityJob } from "@/lib/capabilities";
 import { jobPayTotal } from "@/lib/capabilities";
 import type { WorkerProfile } from "@/lib/worker";
-import { Badge } from "@/components/ui/badge";
+import type { Tier } from "@/lib/engine";
 import { WhyMatched } from "@/components/worker/why-matched";
-import { tierChipClass, tierCss } from "@/components/worker/tier";
 import { cn } from "@/lib/utils";
+
+function tierPillClass(t: Tier): string {
+  if (t === "Bronze") return "fx-pill tier-bronze";
+  if (t === "Silver") return "fx-pill tier";
+  if (t === "Gold") return "fx-pill tier-gold";
+  return "fx-pill tier-platinum";
+}
 
 export function WorkerHomeTab({
   profile,
@@ -20,6 +26,7 @@ export function WorkerHomeTab({
   onOpenBooked,
   onOpenAvailable,
   onImproveCapability,
+  hideHeader,
 }: {
   profile: WorkerProfile;
   activated: boolean;
@@ -31,101 +38,73 @@ export function WorkerHomeTab({
   onOpenBooked: (job: CapabilityJob) => void;
   onOpenAvailable: (job: CapabilityJob) => void;
   onImproveCapability?: (capabilityId: string, moduleId?: string) => void;
+  /** When true, avatar/tier live in the phone shell header. */
+  hideHeader?: boolean;
 }) {
   const pct = Math.min(100, Math.round((weekEarnings / Math.max(1, weekGoal)) * 100));
   const { name, city, avatar, scorePayload: result } = profile;
 
   return (
-    <div className="space-y-4">
-      <div className="flex items-center gap-3">
-        <div
-          className="grid h-11 w-11 place-items-center rounded-full text-sm font-semibold text-white"
-          style={{ background: tierCss(result.tier) }}
-        >
-          {avatar}
+    <div>
+      {!hideHeader ? (
+        <div className="fx-head" style={{ paddingTop: 18 }}>
+          <div className="fx-av">{avatar}</div>
+          <div className="fx-who">
+            <div className="n">{name}</div>
+            <div className="l">{city}</div>
+          </div>
+          <div className="fx-badges">
+            <span className={cn("fx-pill", activated ? "active" : "inactive")}>
+              {activated ? "● Active" : "Not active"}
+            </span>
+            <span className={tierPillClass(result.tier)}>{result.tier.toUpperCase()}</span>
+          </div>
         </div>
-        <div className="min-w-0 flex-1">
-          <p className="font-semibold tracking-tight">{name}</p>
-          <p className="text-xs text-muted-foreground">{city}</p>
-        </div>
-        {activated ? (
-          <Badge variant="live" className="gap-1 normal-case tracking-normal">
-            <span className="h-1.5 w-1.5 rounded-full bg-good" aria-hidden />
-            Active
-          </Badge>
-        ) : (
-          <Badge variant="warn" className="normal-case tracking-normal">
-            Not active
-          </Badge>
-        )}
-        <span
-          className={cn(
-            "rounded-full px-2.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide",
-            tierChipClass(result.tier),
-          )}
-        >
-          {result.tier}
-        </span>
-      </div>
+      ) : null}
 
-      <div
-        className="rounded-2xl px-4 py-3.5 text-white shadow-elevated"
-        style={{
-          background: "linear-gradient(135deg, var(--flex) 0%, var(--flex-dark) 100%)",
-        }}
-      >
-        <p className="text-[10px] font-semibold uppercase tracking-wide text-white/80">
-          This week
-        </p>
-        <p className="mt-1 text-3xl font-semibold tabular tracking-tight">
-          ${weekEarnings}
-          <span className="text-base font-medium text-white/75"> / ${weekGoal}</span>
-        </p>
-        <div className="mt-2.5 h-1.5 overflow-hidden rounded-full bg-white/25">
-          <div className="h-full rounded-full bg-white" style={{ width: `${pct}%` }} />
+      <div className="fx-lbl">This week</div>
+      <div className="fx-earn">
+        <div className="top">
+          <span className="k">Earned</span>
+          <span className="goal">Goal ${weekGoal}</span>
+        </div>
+        <div className="v">${weekEarnings}</div>
+        <div className="fx-bar">
+          <i style={{ width: `${pct}%` }} />
         </div>
       </div>
 
-      <div>
-        <p className="mb-1.5 text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
-          Your next job
-        </p>
-        {bookedJob ? (
-          <JobRow
-            job={bookedJob}
-            mode="confirmed"
-            profile={profile}
-            onOpen={() => onOpenBooked(bookedJob)}
-            onImprove={onImproveCapability}
-          />
-        ) : (
-          <p className="rounded-xl border border-dashed border-border bg-muted/30 px-3 py-3 text-xs text-muted-foreground">
-            No booked job yet — claim one below to activate.
-          </p>
-        )}
-      </div>
-
-      <div>
-        <p className="mb-1.5 text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
-          Available near you
-        </p>
-        <div className="space-y-1.5">
-          {availableJobs.map(({ job, match }) => (
-            <JobRow
-              key={job.id}
-              job={job}
-              mode="claimable"
-              match={match}
-              profile={profile}
-              onOpen={() => onOpenAvailable(job)}
-              onImprove={onImproveCapability}
-            />
-          ))}
+      <div className="fx-lbl">Your next job</div>
+      {bookedJob ? (
+        <JobRow
+          job={bookedJob}
+          mode="confirmed"
+          profile={profile}
+          onOpen={() => onOpenBooked(bookedJob)}
+          onImprove={onImproveCapability}
+        />
+      ) : (
+        <div className="fx-card" style={{ color: "var(--muted)", fontSize: 13 }}>
+          No booked job yet — claim one below to activate.
         </div>
-      </div>
+      )}
 
-      <div className="rounded-xl border border-border bg-[var(--flex-tint)] px-3 py-2.5">
-        <p className="text-sm leading-snug text-foreground">{nudge}</p>
+      <div className="fx-lbl">Available near you</div>
+      {availableJobs.map(({ job, match }) => (
+        <JobRow
+          key={job.id}
+          job={job}
+          mode="claimable"
+          match={match}
+          profile={profile}
+          onOpen={() => onOpenAvailable(job)}
+          onImprove={onImproveCapability}
+        />
+      ))}
+
+      <div className="fx-nudge">
+        <span aria-hidden>🎯</span>
+        <div className="txt">{nudge}</div>
       </div>
     </div>
   );
@@ -147,53 +126,42 @@ function JobRow({
   onImprove?: (capabilityId: string, moduleId?: string) => void;
 }) {
   const pay = jobPayTotal(job);
+  const strong = (match ?? 0) >= 90;
+
   return (
-    <div className="overflow-hidden rounded-xl border border-border bg-card shadow-card">
-      <button
-        type="button"
-        onClick={onOpen}
-        className="flex w-full items-center gap-2 px-3 py-2.5 text-left transition-colors hover:bg-muted/40"
-      >
-        <div
-          className="grid h-9 w-9 shrink-0 place-items-center rounded-lg text-xs font-semibold text-white"
-          style={{ background: "var(--flex)" }}
-        >
-          Fx
-        </div>
-        <div className="min-w-0 flex-1">
-          <p className="text-sm font-semibold tracking-tight">{job.title}</p>
-          <p className="text-[11px] text-muted-foreground">
+    <div style={{ marginBottom: 9 }}>
+      <button type="button" className="fx-job" onClick={onOpen} style={{ marginBottom: 0 }}>
+        <div className="ic">Fx</div>
+        <div className="mid">
+          <div className="t">{job.title}</div>
+          <div className="s">
             {job.city} · {job.slot}
-          </p>
-          <div className="mt-1 flex flex-wrap gap-1">
+          </div>
+          <div className="meta">
             {mode === "confirmed" ? (
-              <span className="inline-flex items-center gap-0.5 rounded-full bg-good-tint px-1.5 py-0.5 text-[10px] font-semibold text-good">
-                <Check className="h-2.5 w-2.5" /> Confirmed
+              <span className="fx-tag conf">
+                <Check className="mr-0.5 inline h-2.5 w-2.5" /> Confirmed
               </span>
             ) : (
-              <span
-                className={cn(
-                  "rounded-full px-1.5 py-0.5 text-[10px] font-semibold",
-                  (match ?? 0) >= 90
-                    ? "bg-good-tint text-good"
-                    : "bg-warn-tint text-warn",
-                )}
-              >
+              <span className={cn("fx-tag", strong ? "m100" : "m50")}>
                 Match {match}%
               </span>
             )}
-            <span className="inline-flex items-center gap-0.5 rounded-full bg-[var(--flex-tint)] px-1.5 py-0.5 text-[10px] font-semibold text-[var(--flex)]">
-              <Sparkles className="h-2.5 w-2.5" /> AI Job Brief
+            <span className="fx-tag ai">
+              <Sparkles className="mr-0.5 inline h-2.5 w-2.5" /> AI Job Brief
             </span>
           </div>
         </div>
-        <div className="flex shrink-0 items-center gap-1">
-          <span className="text-sm font-semibold tabular text-[var(--flex)]">${pay}</span>
-          <ChevronRight className="h-4 w-4 text-muted-foreground" />
-        </div>
+        <span className="pay">${pay}</span>
+        <span className="fx-chev">
+          <ChevronRight className="h-4 w-4" />
+        </span>
       </button>
       {mode === "claimable" ? (
-        <div className="border-t border-border px-2 py-1.5">
+        <div
+          className="fx-card"
+          style={{ marginTop: 0, borderRadius: "0 0 14px 14px", borderTop: 0, padding: "8px 10px" }}
+        >
           <WhyMatched profile={profile} job={job} onImprove={onImprove} />
         </div>
       ) : null}

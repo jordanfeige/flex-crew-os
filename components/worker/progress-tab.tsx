@@ -9,7 +9,6 @@ import type { WorkerProfile } from "@/lib/worker";
 import { CapabilityProfileSection } from "@/components/worker/capability-profile";
 import { ProgressRing } from "@/components/worker/progress-ring";
 import { TIERS, tierCss } from "@/components/worker/tier";
-import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 
 export function WorkerProgressTab({
@@ -41,44 +40,33 @@ export function WorkerProgressTab({
   )[0];
 
   return (
-    <div className="space-y-4">
-      {/* Where you stand */}
-      <div className="flex items-center gap-4 rounded-xl border border-border bg-card p-3 shadow-card">
-        <ProgressRing
-          value={result.score}
-          color={tierCss(result.tier)}
-          label={String(result.score)}
-          sub={ptsLabel}
-          size={96}
-        />
-        <div className="min-w-0 flex-1 space-y-2">
-          <p className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
-            Where you stand
-          </p>
-          <div className="flex flex-col gap-1.5">
+    <div>
+      <div className="fx-lbl">Where you stand</div>
+      <div className="fx-card">
+        <div className="flex items-center gap-4">
+          <ProgressRing
+            value={result.score}
+            color={
+              result.tier === "Silver" ? "#8a93a3" : tierCss(result.tier)
+            }
+            label={String(result.score)}
+            sub={ptsLabel}
+            size={96}
+          />
+          <div className="min-w-0 flex-1">
             {TIERS.map((t) => {
               const idx = TIERS.indexOf(t);
               const cur = TIERS.indexOf(result.tier);
               const done = idx < cur;
               const here = t === result.tier;
               return (
-                <div key={t} className="flex items-center gap-2 text-xs">
-                  <span
-                    className={cn(
-                      "h-2 w-2 rounded-full",
-                      done || here ? "opacity-100" : "opacity-30",
-                    )}
-                    style={{ background: tierCss(t) }}
-                  />
-                  <span
-                    className={cn(
-                      here ? "font-semibold text-foreground" : "text-muted-foreground",
-                    )}
-                  >
-                    {t}
-                    {done ? " ✓" : ""}
-                    {here ? " · you're here" : ""}
-                  </span>
+                <div
+                  key={t}
+                  className={cn("fx-step", done && "done", here && "cur")}
+                >
+                  <span className="d" />
+                  {t}
+                  {here ? " · you're here" : ""}
                 </div>
               );
             })}
@@ -87,17 +75,15 @@ export function WorkerProgressTab({
       </div>
 
       {unlock && next ? (
-        <div className="rounded-xl border border-[var(--flex)]/20 bg-[var(--flex-tint)] px-3 py-2.5">
-          <p className="text-[10px] font-semibold uppercase tracking-wide text-[var(--flex)]">
-            What {next} unlocks
-          </p>
-          <p className="mt-1 text-sm font-semibold text-foreground">
+        <div className="fx-unlock">
+          <div className="t">What {next} unlocks</div>
+          <div className="s">
             {unlock.unlockLabel} ≈ +${unlock.weeklyUsd}/week
-          </p>
+          </div>
         </div>
       ) : null}
 
-      {/* Stage 1 — Capability Profile (shared object) */}
+      <div className="fx-lbl">Capability profile</div>
       <CapabilityProfileSection
         profile={profile}
         jobs={jobs}
@@ -106,43 +92,32 @@ export function WorkerProgressTab({
         onOpenCoaching={onOpenCoaching}
       />
 
-      {/* Ratings */}
-      <div className="rounded-xl border border-border bg-card p-3 shadow-card">
-        <p className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
-          Ratings
-        </p>
-        <div className="mt-1.5 flex items-center gap-1.5">
-          <Star className="h-4 w-4 fill-[var(--gold)] text-[var(--gold)]" />
-          <span className="text-sm font-semibold tabular">
+      <div className="fx-lbl">Ratings</div>
+      <div className="fx-card">
+        <div className="flex items-baseline gap-2">
+          <Star className="h-4 w-4 fill-[#f5a623] text-[#f5a623]" />
+          <span className="text-2xl font-extrabold tabular">
             {profile.ratingsAvg.toFixed(1)}
           </span>
-          <span className="text-xs text-muted-foreground">
+          <span style={{ fontSize: 12, color: "var(--muted)" }}>
             · {profile.ratingsCount} review
             {profile.ratingsCount === 1 ? "" : "s"}
           </span>
         </div>
       </div>
 
-      {/* Boost your score */}
-      <Button
-        type="button"
-        className="h-auto w-full flex-col items-start gap-0.5 whitespace-normal px-3 py-3 text-left"
-        onClick={onTakeCourse}
-        disabled={training >= 6}
-      >
-        <span className="flex w-full items-start gap-2">
-          <BookOpen className="mt-0.5 h-4 w-4 shrink-0" />
-          <span className="min-w-0 leading-snug">
-            5-min course · +2 reliability
-          </span>
-        </span>
-        <span className="pl-6 text-[11px] font-normal leading-snug opacity-90">
-          {gap
-            ? `Closes your ${CAPABILITY_LABEL[gap.id].toLowerCase()} gap · ${training}/6`
-            : `Training bonus ${training}/6`}
-          {training >= 6 ? " · capped" : ""}
-        </span>
-      </Button>
+      <button type="button" className="fx-course" onClick={onTakeCourse} disabled={training >= 6}>
+        <BookOpen className="h-5 w-5 shrink-0" />
+        <div>
+          <div className="t">5-min course · +2 reliability</div>
+          <div className="s">
+            {gap
+              ? `Closes your ${CAPABILITY_LABEL[gap.id].toLowerCase()} gap · ${training}/6`
+              : `Training bonus ${training}/6`}
+            {training >= 6 ? " · capped" : ""}
+          </div>
+        </div>
+      </button>
     </div>
   );
 }

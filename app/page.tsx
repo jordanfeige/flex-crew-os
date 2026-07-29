@@ -39,6 +39,7 @@ import { MarketplaceHero } from "@/components/marketplace-hero";
 import { WorkerHomeTab } from "@/components/worker/home-tab";
 import { WorkerProgressTab } from "@/components/worker/progress-tab";
 import { CapabilityVettingSheet } from "@/components/worker/capability-vetting";
+import { PhoneFrame } from "@/components/worker/phone-frame";
 import { tierCss } from "@/components/worker/tier";
 import {
   JobDetailScreen,
@@ -50,6 +51,13 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Slider } from "@/components/ui/slider";
 import { cn } from "@/lib/utils";
+
+function tierPillClass(t: Tier): string {
+  if (t === "Bronze") return "fx-pill tier-bronze";
+  if (t === "Silver") return "fx-pill tier";
+  if (t === "Gold") return "fx-pill tier-gold";
+  return "fx-pill tier-platinum";
+}
 
 function cloneSignals(s: Signals): Signals {
   return { ...s, trainingBonus: s.trainingBonus ?? 0 };
@@ -600,12 +608,16 @@ export default function HomePage() {
               <motion.div
                 id="experience"
                 className={cn(
-                  "scroll-mt-4 rounded-xl transition-shadow",
-                  highlightExperience && "ring-2 ring-primary shadow-elevated",
+                  "scroll-mt-4 transition-shadow",
+                  highlightExperience && "ring-2 ring-primary rounded-[48px]",
                 )}
                 {...fade}
               >
-                <Card className="relative h-full min-h-[520px] overflow-hidden">
+                <p className="mb-2 flex items-center gap-2 px-1 text-sm font-semibold tracking-tight">
+                  Worker experience
+                  <Badge variant="live">Engagement</Badge>
+                </p>
+                <PhoneFrame>
                   <AnimatePresence>
                     {graduation ? (
                       <motion.div
@@ -642,15 +654,11 @@ export default function HomePage() {
                           <p className="mt-2 text-sm font-medium text-primary">
                             {TIER_ECONOMICS[graduation.to].headline}
                           </p>
-                          <p className="mt-1 text-xs text-muted-foreground">
-                            Priority matching is live · illustrative earnings
-                          </p>
                         </motion.div>
                       </motion.div>
                     ) : null}
                   </AnimatePresence>
 
-                  {/* Job Clarity — same column, existing card chrome */}
                   <AnimatePresence>
                     {clarityJob ? (
                       <motion.div
@@ -658,7 +666,7 @@ export default function HomePage() {
                         initial={reduce ? false : { opacity: 0, x: 12 }}
                         animate={{ opacity: 1, x: 0 }}
                         exit={reduce ? undefined : { opacity: 0, x: 8 }}
-                        className="absolute inset-0 z-30 flex flex-col bg-card"
+                        className="absolute inset-0 z-30 flex min-h-0 flex-col overflow-hidden bg-[var(--canvas)]"
                       >
                         <JobDetailScreen
                           job={clarityJob}
@@ -671,41 +679,23 @@ export default function HomePage() {
                     ) : null}
                   </AnimatePresence>
 
-                  <CardHeader className="space-y-3">
-                    <div className="flex items-center gap-2">
-                      <CardTitle>Worker experience</CardTitle>
-                      <Badge variant="live">Engagement</Badge>
+                  <div className="fx-head">
+                    <div className="fx-av">{member.avatar}</div>
+                    <div className="fx-who">
+                      <div className="n">{member.name}</div>
+                      <div className="l">{member.city}</div>
                     </div>
-                    <div
-                      className="flex rounded-lg border border-border bg-muted/40 p-0.5"
-                      role="tablist"
-                      aria-label="Worker sections"
-                    >
-                      {(
-                        [
-                          ["home", "Home"],
-                          ["progress", "Progress"],
-                        ] as const
-                      ).map(([id, label]) => (
-                        <button
-                          key={id}
-                          type="button"
-                          role="tab"
-                          aria-selected={workerTab === id}
-                          onClick={() => setWorkerTab(id)}
-                          className={cn(
-                            "flex-1 rounded-md px-3 py-1.5 text-xs font-semibold transition-colors",
-                            workerTab === id
-                              ? "bg-card text-foreground shadow-card"
-                              : "text-muted-foreground hover:text-foreground",
-                          )}
-                        >
-                          {label}
-                        </button>
-                      ))}
+                    <div className="fx-badges">
+                      <span className={cn("fx-pill", activated ? "active" : "inactive")}>
+                        {activated ? "● Active" : "Not active"}
+                      </span>
+                      <span className={tierPillClass(result.tier)}>
+                        {result.tier.toUpperCase()}
+                      </span>
                     </div>
-                  </CardHeader>
-                  <CardContent className="relative space-y-5">
+                  </div>
+
+                  <div className="fx-body relative">
                     {workerTab === "home" ? (
                       <WorkerHomeTab
                         profile={workerProfile}
@@ -715,6 +705,7 @@ export default function HomePage() {
                         bookedJob={bookedJob}
                         availableJobs={availableJobs}
                         nudge={homeNudge}
+                        hideHeader
                         onOpenBooked={(job) => openJobDetail(job, "confirmed")}
                         onOpenAvailable={(job) => {
                           const m =
@@ -759,14 +750,37 @@ export default function HomePage() {
                           initial={reduce ? false : { opacity: 0, y: 8 }}
                           animate={{ opacity: 1, y: 0 }}
                           exit={{ opacity: 0, y: 4 }}
-                          className="absolute inset-x-4 bottom-3 z-10 rounded-lg bg-[var(--flex)] px-3 py-2 text-center text-xs font-semibold text-white shadow-elevated"
+                          className="absolute inset-x-3 bottom-2 z-10 rounded-xl bg-[#111827] px-3 py-2.5 text-center text-[13px] font-semibold text-white"
                         >
                           {claimToast}
                         </motion.div>
                       ) : null}
                     </AnimatePresence>
-                  </CardContent>
-                </Card>
+                  </div>
+
+                  <nav className="fx-nav" aria-label="Worker tabs">
+                    <button
+                      type="button"
+                      className={workerTab === "home" ? "on" : undefined}
+                      onClick={() => setWorkerTab("home")}
+                    >
+                      <span className="text-lg" aria-hidden>
+                        ⌂
+                      </span>
+                      <span className="nl">Home</span>
+                    </button>
+                    <button
+                      type="button"
+                      className={workerTab === "progress" ? "on" : undefined}
+                      onClick={() => setWorkerTab("progress")}
+                    >
+                      <span className="text-lg" aria-hidden>
+                        ◉
+                      </span>
+                      <span className="nl">Progress</span>
+                    </button>
+                  </nav>
+                </PhoneFrame>
               </motion.div>
 
               {/* CENTER — Engine pipeline */}
