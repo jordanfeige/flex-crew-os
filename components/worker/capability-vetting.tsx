@@ -28,7 +28,7 @@ export function CapabilityVettingSheet({
 
   if (!open) return null;
 
-  const module = picked ? coachingModuleFor(picked) : null;
+  const coach = picked ? coachingModuleFor(picked) : null;
 
   function finish() {
     if (!picked) return;
@@ -102,13 +102,13 @@ export function CapabilityVettingSheet({
               ))}
             </div>
 
-            {picked && module ? (
+            {picked && coach ? (
               <div className="rounded-xl border border-border bg-muted/40 p-3">
                 <p className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
                   Vetting step
                 </p>
-                <p className="mt-1 text-sm font-semibold">{module.title}</p>
-                <p className="mt-0.5 text-xs text-muted-foreground">{module.summary}</p>
+                <p className="mt-1 text-sm font-semibold">{coach.title}</p>
+                <p className="mt-0.5 text-xs text-muted-foreground">{coach.summary}</p>
                 <Button type="button" className="mt-3 w-full" onClick={finish}>
                   Complete vetting · earn {CAPABILITY_LABEL[picked]}
                 </Button>

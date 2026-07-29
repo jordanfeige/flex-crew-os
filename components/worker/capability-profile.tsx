@@ -123,7 +123,7 @@ function CapabilityRow({
   onOpenCoaching?: (moduleId: string) => void;
 }) {
   const unlocked = jobsUnlockedBy(cap.id, jobs);
-  const module = cap.coachingModuleId
+  const coach = cap.coachingModuleId
     ? COACHING_MODULES[cap.coachingModuleId]
     : null;
   const strong = (cap.proficiency ?? 0) >= 2;
@@ -219,19 +219,19 @@ function CapabilityRow({
             </ul>
           </div>
 
-          {module ? (
+          {coach ? (
             <button
               type="button"
-              onClick={() => onOpenCoaching?.(module.id)}
+              onClick={() => onOpenCoaching?.(coach.id)}
               className="flex w-full items-start gap-2 rounded-lg border border-[var(--flex)]/20 bg-[var(--flex-tint)] px-2.5 py-2 text-left"
             >
               <BookOpen className="mt-0.5 h-3.5 w-3.5 shrink-0 text-[var(--flex)]" />
               <div>
                 <p className="text-xs font-semibold text-foreground">
-                  {module.title} · {module.durationMin} min
+                  {coach.title} · {coach.durationMin} min
                 </p>
                 <p className="text-[11px] text-muted-foreground">
-                  {module.summary} · +{module.reliabilityBoost} reliability
+                  {coach.summary} · +{coach.reliabilityBoost} reliability
                 </p>
               </div>
             </button>
