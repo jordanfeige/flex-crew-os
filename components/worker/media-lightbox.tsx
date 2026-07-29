@@ -35,7 +35,7 @@ export function WalkthroughMedia({
     <>
       <div className="rounded-xl border border-border bg-muted/40 p-3">
         <p className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
-          From the customer&apos;s walkthrough
+          Optional walkthrough media
         </p>
 
         {media.video ? (

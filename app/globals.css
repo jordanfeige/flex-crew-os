@@ -24,10 +24,13 @@
   --color-warn-tint: var(--warn-tint);
   --color-critical: var(--critical);
   --color-critical-tint: var(--critical-tint);
-  --color-recruit: var(--recruit);
-  --color-shadow-tier: var(--shadow-tier);
-  --color-pro: var(--pro);
-  --color-elite: var(--elite);
+  --color-bronze: var(--bronze);
+  --color-silver: var(--silver);
+  --color-gold: var(--gold);
+  --color-platinum: var(--platinum);
+  --color-flex: var(--flex);
+  --color-flex-dark: var(--flex-dark);
+  --color-flex-tint: var(--flex-tint);
   --radius-sm: calc(var(--radius) - 4px);
   --radius-md: calc(var(--radius) - 2px);
   --radius-lg: var(--radius);
@@ -46,13 +49,16 @@
   --muted-foreground: #5a6760;
   --border: #e4e9e5;
   --input: #e4e9e5;
-  /* Flex brand blue — chrome / primary button only */
-  --primary: #2360f9;
+  /* Flex brand */
+  --flex: #2260f9;
+  --flex-dark: #1747c0;
+  --flex-tint: #eaf1ff;
+  --primary: #2260f9;
   --primary-foreground: #ffffff;
-  --accent: #e8effe;
-  --accent-foreground: #1a3fad;
-  --ring: #2360f9;
-  --brand: #2360f9;
+  --accent: #eaf1ff;
+  --accent-foreground: #1747c0;
+  --ring: #2260f9;
+  --brand: #2260f9;
   --radius: 0.75rem;
   --shadow-card: 0 1px 2px rgba(11, 18, 16, 0.04), 0 1px 3px rgba(11, 18, 16, 0.06);
   --shadow-elevated: 0 4px 12px rgba(11, 18, 16, 0.08), 0 2px 4px rgba(11, 18, 16, 0.04);
@@ -62,13 +68,14 @@
   --warn-tint: #fff8e6;
   --critical: #b3261e;
   --critical-tint: #fdecec;
-  --recruit: #6b7280;
-  --shadow-tier: #b45309;
-  --pro: #2e7d32;
-  --elite: #0f766e;
+  /* Metal loyalty ladder */
+  --bronze: #b87333;
+  --silver: #8a939e;
+  --gold: #c9a227;
+  --platinum: #6b7280;
   --sidebar: #ffffff;
   --sidebar-border: #e4e9e5;
-  --sidebar-accent: #e8effe;
+  --sidebar-accent: #eaf1ff;
 }
 
 @layer base {

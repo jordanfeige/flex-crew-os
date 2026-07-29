@@ -134,7 +134,7 @@ export function EnginePipeline({
   const coachLine =
     impact.nextTier != null
       ? `${impact.probFrom}% → ${impact.probTo}% ${impact.nextTier}`
-      : "Elite hold";
+      : "Platinum hold";
 
   return (
     <Card className="h-full">
@@ -374,8 +374,8 @@ export function EnginePipeline({
 }
 
 function tierColor(t: Tier): string {
-  if (t === "Recruit") return "var(--recruit)";
-  if (t === "Shadow") return "var(--shadow-tier)";
-  if (t === "Pro") return "var(--pro)";
-  return "var(--elite)";
+  if (t === "Bronze") return "var(--bronze)";
+  if (t === "Silver") return "var(--silver)";
+  if (t === "Gold") return "var(--gold)";
+  return "var(--platinum)";
 }

@@ -73,7 +73,7 @@ export function primaryDriver(
   if (dScore <= dChurn) {
     return {
       kind: "score",
-      label: "Worker reliability slipping — fewer Shadow→Pro graduations",
+      label: "Worker reliability slipping — fewer Silver→Gold graduations",
       pts: +dScore.toFixed(1),
       dScore: +dScore.toFixed(1),
       dChurn: +dChurn.toFixed(1),
@@ -81,7 +81,7 @@ export function primaryDriver(
   }
   return {
     kind: "churn",
-    label: "Rising churn among Shadow workers",
+    label: "Rising churn among Silver workers",
     pts: +dChurn.toFixed(1),
     dScore: +dScore.toFixed(1),
     dChurn: +dChurn.toFixed(1),

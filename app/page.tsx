@@ -3,54 +3,47 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { motion, useReducedMotion, AnimatePresence } from "framer-motion";
 import {
-  BookOpen,
   Boxes,
   ChevronDown,
-  Flame,
   GraduationCap,
-  Inbox,
   Radio,
   Shield,
-  Sparkles,
   TrendingUp,
   Users,
-  DollarSign,
 } from "lucide-react";
-import { CREW, PERKS_BY_TIER, PIPELINE, type CrewMember } from "@/lib/data";
+import { CREW, type CrewMember } from "@/lib/data";
 import {
   CAPABILITY_JOBS,
   SEED_REVIEWS,
+  WORKER_CAPABILITIES,
   capabilityWorkerById,
+  capabilityWorkers,
 } from "@/data/reviews";
-import {
-  CAPABILITY_LABEL,
-  jobPayTotal,
-  matchScore,
-  type CapabilityJob,
-} from "@/lib/capabilities";
+import { jobPayTotal, type Capability, type CapabilityJob } from "@/lib/capabilities";
 import { evaluateMarketplace } from "@/lib/marketplace";
+import { evaluateCopilot } from "@/lib/copilot";
 import {
   evaluate,
-  evaluateCapabilityReliability,
   nextTierName,
   type Signals,
   type Tier,
 } from "@/lib/engine";
 import type { Review } from "@/lib/reviews";
-import {
-  onTimeStreak,
-  sinceYouLeft,
-  tierMoney,
-  tierRank,
-  TIER_ECONOMICS,
-} from "@/lib/stickiness";
+import { tierRank, TIER_ECONOMICS } from "@/lib/stickiness";
+import { buildWorkerProfile, matchScore } from "@/lib/worker";
+import { COACHING_MODULES } from "@/lib/coaching";
 import { CapabilityEngineSection } from "@/components/capability-engine";
 import { EnginePipeline } from "@/components/engine-pipeline";
+import { MarketplaceCopilot } from "@/components/marketplace-copilot";
 import { MarketplaceHero } from "@/components/marketplace-hero";
-import { JobCard } from "@/components/worker/job-card";
-import { ProgressRing } from "@/components/worker/progress-ring";
-import { WorkerLanding } from "@/components/worker/landing";
-import { JobClarityScreen } from "@/components/worker-app/job-clarity";
+import { WorkerHomeTab } from "@/components/worker/home-tab";
+import { WorkerProgressTab } from "@/components/worker/progress-tab";
+import { CapabilityVettingSheet } from "@/components/worker/capability-vetting";
+import { tierCss } from "@/components/worker/tier";
+import {
+  JobDetailScreen,
+  type JobDetailMode,
+} from "@/components/worker-app/job-clarity";
 import { RatingModal } from "@/components/worker-app/rating-modal";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -62,21 +55,15 @@ function cloneSignals(s: Signals): Signals {
   return { ...s, trainingBonus: s.trainingBonus ?? 0 };
 }
 
-function tierCss(t: Tier): string {
-  if (t === "Recruit") return "var(--recruit)";
-  if (t === "Shadow") return "var(--shadow-tier)";
-  if (t === "Pro") return "var(--pro)";
-  return "var(--elite)";
-}
-
-const TIERS: Tier[] = ["Recruit", "Shadow", "Pro", "Elite"];
+const SEED_BOOKED =
+  CAPABILITY_JOBS.find((j) => j.id === "job-move-2br") ?? CAPABILITY_JOBS[0];
 
 const NAV = [
   { href: "#marketplace-hero", label: "Marketplace", icon: TrendingUp },
   { href: "#simulator", label: "Simulator", icon: Radio },
   { href: "#experience", label: "Experience", icon: Users },
   { href: "#engine", label: "Engine", icon: Shield },
-  { href: "#capability-engine", label: "Capabilities", icon: Boxes },
+  { href: "#capability-engine", label: "Cap Engine", icon: Boxes },
 ] as const;
 
 function Stepper({
@@ -135,12 +122,22 @@ export default function HomePage() {
   const [highlightExperience, setHighlightExperience] = useState(false);
   const [reviews, setReviews] = useState<Review[]>(() => [...SEED_REVIEWS]);
   const [clarityJob, setClarityJob] = useState<CapabilityJob | null>(null);
+  const [detailMode, setDetailMode] = useState<JobDetailMode>("claimable");
+  const [detailMatch, setDetailMatch] = useState(0);
+  const [bookedJob, setBookedJob] = useState<CapabilityJob | null>(SEED_BOOKED);
   const [ratingJob, setRatingJob] = useState<CapabilityJob | null>(null);
-  /** Home (landing) | Progress (engagement) — one worker home, two segments. */
+  /** Home | Progress — one worker home, two segments. */
   const [workerTab, setWorkerTab] = useState<"home" | "progress">("home");
   const [weekEarnings, setWeekEarnings] = useState(0);
+  const [claimToast, setClaimToast] = useState<string | null>(null);
   /** Collapsed by default so Worker / Capability Engine stay in view. */
   const [simOpen, setSimOpen] = useState(false);
+  /** Earned capabilities overlay — starts from seed, grows via vetting. */
+  const [earnedCaps, setEarnedCaps] = useState<Capability[]>(
+    () => WORKER_CAPABILITIES[DEFAULT_WORKER_ID] ?? [],
+  );
+  const [vettingOpen, setVettingOpen] = useState(false);
+  const [focusCapabilityId, setFocusCapabilityId] = useState<string | null>(null);
 
   function goTo(href: string) {
     setActiveNav(href);
@@ -174,8 +171,13 @@ export default function HomePage() {
     setGraduation(null);
     setClarityJob(null);
     setRatingJob(null);
+    setBookedJob(SEED_BOOKED);
     setWorkerTab("home");
     setWeekEarnings(0);
+    setClaimToast(null);
+    setEarnedCaps(WORKER_CAPABILITIES[id] ?? []);
+    setVettingOpen(false);
+    setFocusCapabilityId(null);
     prevTierRef.current = evaluate(nextSignals).tier;
   }
 
@@ -199,56 +201,86 @@ export default function HomePage() {
   }
 
   const result = useMemo(() => evaluate(signals), [signals]);
-  const capWorker = useMemo(() => capabilityWorkerById(selectedId), [selectedId]);
-  const capabilityReliability = useMemo(
-    () =>
-      evaluateCapabilityReliability(selectedId, capWorker.capabilities, reviews),
-    [selectedId, capWorker.capabilities, reviews],
+  const capWorker = useMemo(() => {
+    const base = capabilityWorkerById(selectedId);
+    return { ...base, capabilities: earnedCaps, signals };
+  }, [selectedId, earnedCaps, signals]);
+  const workerProfile = useMemo(
+    () => buildWorkerProfile(capWorker, reviews, signals),
+    [capWorker, reviews, signals],
   );
+  const allProfiles = useMemo(() => {
+    return capabilityWorkers().map((w) => {
+      if (w.id === selectedId) {
+        return buildWorkerProfile(
+          { ...w, capabilities: earnedCaps, signals },
+          reviews,
+          signals,
+        );
+      }
+      return buildWorkerProfile(w, reviews);
+    });
+  }, [selectedId, earnedCaps, signals, reviews]);
+  const capabilityReliability = workerProfile.reliabilityBreakdown;
   const market = useMemo(
     () => evaluateMarketplace(incentiveUsd, { id: selectedId, signals }),
     [incentiveUsd, selectedId, signals],
   );
+  const copilotRecs = useMemo(
+    () => evaluateCopilot(market, allProfiles, CAPABILITY_JOBS),
+    [market, allProfiles],
+  );
   const next = nextTierName(result.tier);
   const training = signals.trainingBonus ?? 0;
-  /** One job catalog — capability match, pay from CAPABILITY_JOBS (no MATCHED_JOBS fork). */
-  const personalizedJobs = useMemo(() => {
+  /** Available near you — explainable match from shared WorkerProfile. */
+  const availableJobs = useMemo(() => {
     return [...CAPABILITY_JOBS]
-      .map((job) => ({ job, match: matchScore(capWorker, job) }))
+      .filter((job) => job.id !== bookedJob?.id)
+      .map((job) => ({ job, match: matchScore(workerProfile, job).score }))
       .sort((a, b) => {
-        const ca = a.job.clarity ? 1 : 0;
-        const cb = b.job.clarity ? 1 : 0;
+        const ca = a.job.clarity || a.job.media ? 1 : 0;
+        const cb = b.job.clarity || b.job.media ? 1 : 0;
         if (cb !== ca) return cb - ca;
         return b.match - a.match;
       })
       .slice(0, 3);
-  }, [capWorker]);
-  const nearbyPayTotal = useMemo(
-    () => personalizedJobs.reduce((sum, { job }) => sum + jobPayTotal(job), 0),
-    [personalizedJobs],
-  );
+  }, [workerProfile, bookedJob?.id]);
   /** Luke: activation = first job completed (not onboarding). */
   const activated = signals.jobsCompleted >= 1;
-  const landingNba = !activated
-    ? "Claim & complete your first move to activate"
-    : result.nextBestAction;
   const weekGoal = 400 + TIER_ECONOMICS[result.tier].weeklyUsd;
   const displayWeekEarnings = activated
     ? weekEarnings + Math.round(120 + signals.jobsCompleted * 18)
     : weekEarnings;
-  const perks = PERKS_BY_TIER[result.tier];
   const member: CrewMember = CREW.find((c) => c.id === selectedId) ?? CREW[0];
-  const impact = result.estimatedImpact;
-  const money = useMemo(() => tierMoney(signals), [signals]);
-  const streak = useMemo(() => onTimeStreak(signals), [signals]);
-  const dryOpen = useMemo(() => sinceYouLeft(signals), [signals]);
+
+  /** Plain-language Home nudge — no probability math. */
+  const homeNudge =
+    result.tier === "Silver"
+      ? "Claim 1 more weekend job to reach Gold — unlocks priority matching, ≈ +$140/week."
+      : result.tier === "Bronze"
+        ? `Complete ${Math.max(0, 3 - signals.jobsCompleted)} more job${Math.max(0, 3 - signals.jobsCompleted) === 1 ? "" : "s"} to reach Silver — standard matching unlocks.`
+        : result.tier === "Gold"
+          ? "Keep your on-time streak to hold Gold priority matching."
+          : "You're Platinum — keep the streak to stay there.";
+
+  function openJobDetail(
+    job: CapabilityJob,
+    mode: JobDetailMode,
+    match = 0,
+  ) {
+    setDetailMode(mode);
+    setDetailMatch(match);
+    setClarityJob(job);
+  }
 
   function claimJob(job: CapabilityJob) {
     const pay = jobPayTotal(job);
+    setBookedJob(job);
     setClarityJob(null);
     setWeekEarnings((e) => e + pay);
-    patch({ jobsCompleted: signals.jobsCompleted + 1 });
-    setRatingJob(job);
+    setWorkerTab("home");
+    setClaimToast(`Move claimed · $${pay} — it's under Your next job`);
+    window.setTimeout(() => setClaimToast(null), 3200);
   }
 
   useEffect(() => {
@@ -293,11 +325,11 @@ export default function HomePage() {
   }, []);
 
   const ptsLabel =
-    result.tier === "Elite"
-      ? "Elite"
-      : result.tier === "Recruit"
-        ? `${Math.max(0, 3 - signals.jobsCompleted)} job${3 - signals.jobsCompleted === 1 ? "" : "s"} to Shadow`
-        : `${result.pointsToNextTier} pts to ${next}`;
+    result.tier === "Platinum"
+      ? "Platinum"
+      : result.tier === "Bronze"
+        ? `${Math.max(0, 3 - signals.jobsCompleted)} job${3 - signals.jobsCompleted === 1 ? "" : "s"} to Silver`
+        : `${result.pointsToNextTier} pt${result.pointsToNextTier === 1 ? "" : "s"} to ${next}`;
 
   const fade = reduce
     ? {}
@@ -628,8 +660,10 @@ export default function HomePage() {
                         exit={reduce ? undefined : { opacity: 0, x: 8 }}
                         className="absolute inset-0 z-30 flex flex-col bg-card"
                       >
-                        <JobClarityScreen
+                        <JobDetailScreen
                           job={clarityJob}
+                          mode={detailMode}
+                          match={detailMatch}
                           onBack={() => setClarityJob(null)}
                           onClaim={() => claimJob(clarityJob)}
                         />
@@ -671,308 +705,66 @@ export default function HomePage() {
                       ))}
                     </div>
                   </CardHeader>
-                  <CardContent className="space-y-5">
+                  <CardContent className="relative space-y-5">
                     {workerTab === "home" ? (
-                      <WorkerLanding
-                        name={member.name}
-                        city={member.city}
-                        avatar={member.avatar}
-                        result={result}
-                        ptsLabel={ptsLabel}
+                      <WorkerHomeTab
+                        profile={workerProfile}
                         activated={activated}
-                        nearbyPayTotal={nearbyPayTotal}
-                        nextBestAction={landingNba}
-                        jobs={personalizedJobs}
                         weekEarnings={displayWeekEarnings}
                         weekGoal={weekGoal}
-                        onOpenJob={(job) => setClarityJob(job)}
-                        onOpenProgress={() => setWorkerTab("progress")}
-                        onPrimaryAction={() => setWorkerTab("progress")}
+                        bookedJob={bookedJob}
+                        availableJobs={availableJobs}
+                        nudge={homeNudge}
+                        onOpenBooked={(job) => openJobDetail(job, "confirmed")}
+                        onOpenAvailable={(job) => {
+                          const m =
+                            availableJobs.find((a) => a.job.id === job.id)?.match ??
+                            matchScore(workerProfile, job).score;
+                          openJobDetail(job, "claimable", m);
+                        }}
+                        onImproveCapability={(capId) => {
+                          setFocusCapabilityId(capId);
+                          setWorkerTab("progress");
+                        }}
                       />
                     ) : (
-                      <>
-                    <div className="flex items-center gap-3">
-                      <div
-                        className="grid h-11 w-11 place-items-center rounded-full text-sm font-semibold text-white"
-                        style={{ background: tierCss(result.tier) }}
-                      >
-                        {member.avatar}
-                      </div>
-                      <div>
-                        <p className="font-semibold tracking-tight">{member.name}</p>
-                        <p className="text-xs text-muted-foreground">{member.city}</p>
-                      </div>
-                      <Badge
-                        className="ml-auto border-0 text-white"
-                        style={{ background: tierCss(result.tier) }}
-                      >
-                        {result.tier}
-                      </Badge>
-                      {activated ? (
-                        <Badge variant="live" className="normal-case tracking-normal">
-                          Active
-                        </Badge>
-                      ) : (
-                        <Badge variant="warn" className="normal-case tracking-normal">
-                          Not active
-                        </Badge>
-                      )}
-                    </div>
-
-                    <div className="flex items-center gap-4">
-                      <ProgressRing
-                        value={result.score}
-                        color={tierCss(result.tier)}
-                        label={String(result.score)}
-                        sub={ptsLabel}
+                      <WorkerProgressTab
+                        profile={workerProfile}
+                        ptsLabel={ptsLabel}
+                        jobs={CAPABILITY_JOBS}
+                        focusCapabilityId={focusCapabilityId}
+                        training={training}
+                        onTakeCourse={takeCourse}
+                        onAddCapability={() => setVettingOpen(true)}
+                        onOpenCoaching={(moduleId) => {
+                          const mod = COACHING_MODULES[moduleId];
+                          if (mod) takeCourse();
+                        }}
                       />
-                      <div className="min-w-0 space-y-2">
-                        <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-                          Career path
-                        </p>
-                        <div className="flex flex-col gap-1.5">
-                          {TIERS.map((t) => {
-                            const active = result.tier === t;
-                            const passed =
-                              TIERS.indexOf(t) <= TIERS.indexOf(result.tier) &&
-                              !(result.tier === "Recruit" && t !== "Recruit");
-                            return (
-                              <div key={t} className="flex items-center gap-2 text-xs">
-                                <span
-                                  className={cn(
-                                    "h-2 w-2 rounded-full",
-                                    active || passed ? "opacity-100" : "opacity-30",
-                                  )}
-                                  style={{ background: tierCss(t) }}
-                                />
-                                <span
-                                  className={cn(
-                                    active
-                                      ? "font-semibold text-foreground"
-                                      : "text-muted-foreground",
-                                  )}
-                                >
-                                  {t}
-                                </span>
-                              </div>
-                            );
-                          })}
-                        </div>
-                        <p className="text-[11px] text-muted-foreground">
-                          Capability overall{" "}
-                          <span className="font-semibold tabular text-foreground">
-                            {capabilityReliability.overall}
-                          </span>
-                          <span className="text-muted-foreground"> · from reviews</span>
-                        </p>
-                      </div>
-                    </div>
-
-                    {/* Progression pays */}
-                    {money.next ? (
-                      <div className="rounded-xl border border-good/25 bg-good-tint/60 px-3 py-2.5">
-                        <div className="flex items-start gap-2">
-                          <DollarSign className="mt-0.5 h-4 w-4 shrink-0 text-good" />
-                          <div>
-                            <p className="text-sm font-semibold text-foreground">
-                              {money.headline}
-                            </p>
-                            <p className="mt-0.5 text-[11px] text-muted-foreground">
-                              Illustrative ·{" "}
-                              {result.tier === "Recruit"
-                                ? `${Math.max(0, 3 - signals.jobsCompleted)} more job${3 - signals.jobsCompleted === 1 ? "" : "s"} to unlock`
-                                : `${result.pointsToNextTier} pts to unlock`}{" "}
-                              · same reliability score
-                            </p>
-                          </div>
-                        </div>
-                      </div>
-                    ) : null}
-
-                    {money.demotion ? (
-                      <div className="rounded-xl border border-warn/30 bg-warn-tint px-3 py-2 text-xs text-warn">
-                        <strong className="font-semibold">Keep your tier</strong> —{" "}
-                        {money.demotion}
-                      </div>
-                    ) : null}
-
-                    {/* Dry open — kills the bounce */}
-                    <div className="rounded-xl border border-border bg-muted/40 p-3">
-                      <div className="mb-2 flex items-center justify-between gap-2">
-                        <div className="flex items-center gap-1.5 text-sm font-semibold">
-                          <Inbox className="h-4 w-4 text-primary" />
-                          Since you left
-                        </div>
-                        {streak.count > 0 ? (
-                          <span
-                            className={cn(
-                              "inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[11px] font-semibold",
-                              streak.atRiskHours <= 6
-                                ? "bg-warn-tint text-warn"
-                                : "bg-accent text-accent-foreground",
-                            )}
-                          >
-                            <Flame className="h-3 w-3" />
-                            {streak.count} · {streak.atRiskHours}h
-                          </span>
-                        ) : null}
-                      </div>
-                      <ul className="space-y-1.5">
-                        {dryOpen.map((line) => (
-                          <li
-                            key={line.id}
-                            className={cn(
-                              "text-xs leading-relaxed",
-                              line.tone === "money" && "font-medium text-foreground",
-                              line.tone === "risk" && "text-warn",
-                              line.tone === "learn" && "text-muted-foreground",
-                              line.tone === "neutral" && "text-muted-foreground",
-                            )}
-                          >
-                            {line.text}
-                          </li>
-                        ))}
-                      </ul>
-                    </div>
-
-                    <div>
-                      <p className="mb-1.5 text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
-                        Perks · {result.tier}
-                      </p>
-                      <div className="flex flex-wrap gap-1.5">
-                        {perks.map((p) => (
-                          <span
-                            key={p}
-                            className="rounded-md bg-accent px-2 py-1 text-[11px] font-medium text-accent-foreground"
-                          >
-                            {p}
-                          </span>
-                        ))}
-                      </div>
-                    </div>
-
-                    <div>
-                      <p className="mb-1.5 text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
-                        Capabilities
-                      </p>
-                      <div className="flex flex-wrap gap-1.5">
-                        {capWorker.capabilities.map((c) => (
-                          <span
-                            key={c}
-                            className="rounded-md bg-accent px-2 py-1 text-[11px] font-medium text-accent-foreground"
-                          >
-                            {CAPABILITY_LABEL[c]}
-                          </span>
-                        ))}
-                      </div>
-                      <p className="mt-1.5 text-[11px] text-muted-foreground">
-                        Moving {capabilityReliability.byService.moving} · Cleaning{" "}
-                        {capabilityReliability.byService.cleaning} · Delivery{" "}
-                        {capabilityReliability.byService.delivery} · Install{" "}
-                        {capabilityReliability.byService.install}
-                      </p>
-                    </div>
-
-                    <Card className="border-primary/20 bg-muted/40 shadow-none">
-                      <CardContent className="space-y-3 p-4">
-                        <div className="flex items-center gap-2 text-sm font-semibold">
-                          <Sparkles className="h-4 w-4 text-primary" />
-                          AI Coach
-                        </div>
-                        <div>
-                          <p className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
-                            Daily goal
-                          </p>
-                          <p className="text-sm">{result.dailyGoal}</p>
-                        </div>
-                        <div>
-                          <p className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
-                            Next best action
-                          </p>
-                          <p className="text-sm">{result.nextBestAction}</p>
-                        </div>
-                        <motion.div
-                          key={`${impact.from}-${impact.to}-${impact.probFrom}-${impact.probTo}`}
-                          initial={reduce ? false : { opacity: 0, y: 4 }}
-                          animate={{ opacity: 1, y: 0 }}
-                          className="rounded-lg border border-border bg-card px-3 py-2"
-                        >
-                          <p className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
-                            Estimated impact · illustrative
-                          </p>
-                          <p className="mt-1 text-sm leading-snug">
-                            <span className="font-medium">{impact.action}</span>
-                            {" takes you "}
-                            <motion.span
-                              key={`sc-${impact.from}-${impact.to}`}
-                              className="font-semibold tabular text-primary"
-                            >
-                              {impact.from} → {impact.to}
-                            </motion.span>
-                            <span className="tabular text-muted-foreground">
-                              {" "}
-                              ({impact.delta >= 0 ? "+" : ""}
-                              {impact.delta})
-                            </span>
-                            {" — "}
-                            <motion.span
-                              key={`pr-${impact.probFrom}-${impact.probTo}`}
-                              className="font-semibold tabular text-primary"
-                            >
-                              {impact.probFrom}% → {impact.probTo}%
-                            </motion.span>
-                            {" chance of "}
-                            {impact.nextTier ?? "staying Elite"}
-                            {"."}
-                          </p>
-                          {money.next ? (
-                            <p className="mt-0.5 text-xs font-medium text-good">
-                              Unlock ≈ +${money.weeklyUsd}/week
-                            </p>
-                          ) : null}
-                        </motion.div>
-                        <p className="border-l-[3px] border-primary pl-2.5 text-xs leading-relaxed">
-                          {result.coachNudge}
-                        </p>
-                      </CardContent>
-                    </Card>
-
-                    <div>
-                      <p className="mb-1.5 text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
-                        Matched jobs
-                        {(result.tier === "Pro" || result.tier === "Elite") && " · priority"}
-                      </p>
-                      <div className="space-y-1.5">
-                        {personalizedJobs.map(({ job, match }) => (
-                          <JobCard
-                            key={job.id}
-                            job={job}
-                            match={match}
-                            onOpen={() => setClarityJob(job)}
-                          />
-                        ))}
-                      </div>
-                    </div>
-
-                    <Button
-                      type="button"
-                      className="h-auto w-full flex-col items-start gap-0.5 whitespace-normal px-3 py-3 text-left"
-                      onClick={takeCourse}
-                      disabled={training >= 6}
-                    >
-                      <span className="flex w-full items-start gap-2">
-                        <BookOpen className="mt-0.5 h-4 w-4 shrink-0" />
-                        <span className="min-w-0 leading-snug">
-                          5-min furniture-handling course · +2 reliability
-                        </span>
-                      </span>
-                      <span className="pl-6 text-[11px] font-normal leading-snug opacity-90">
-                        Training bonus {training}/6{training >= 6 ? " · capped" : ""}
-                        {" · education over deprioritize"}
-                      </span>
-                    </Button>
-                      </>
                     )}
+                    <CapabilityVettingSheet
+                      open={vettingOpen}
+                      profile={workerProfile}
+                      onClose={() => setVettingOpen(false)}
+                      onEarn={(cap) => {
+                        setEarnedCaps((prev) =>
+                          prev.includes(cap) ? prev : [...prev, cap],
+                        );
+                      }}
+                    />
+                    <AnimatePresence>
+                      {claimToast ? (
+                        <motion.div
+                          key="claim-toast"
+                          initial={reduce ? false : { opacity: 0, y: 8 }}
+                          animate={{ opacity: 1, y: 0 }}
+                          exit={{ opacity: 0, y: 4 }}
+                          className="absolute inset-x-4 bottom-3 z-10 rounded-lg bg-[var(--flex)] px-3 py-2 text-center text-xs font-semibold text-white shadow-elevated"
+                        >
+                          {claimToast}
+                        </motion.div>
+                      ) : null}
+                    </AnimatePresence>
                   </CardContent>
                 </Card>
               </motion.div>
@@ -988,104 +780,37 @@ export default function HomePage() {
                 />
               </motion.div>
 
-              {/* RIGHT — Marketplace ops */}
+              {/* RIGHT — Marketplace Copilot (ops) */}
               <motion.div
                 id="marketplace"
                 className="scroll-mt-4"
                 key={`mkt-${market.supplyHealth}-${market.fillLift}`}
                 {...fade}
               >
-                <Card className="h-full">
-                  <CardHeader>
-                    <div className="flex items-center gap-2">
-                      <CardTitle>Marketplace intelligence</CardTitle>
-                      <Badge variant="engine">Liquidity</Badge>
-                    </div>
-                  </CardHeader>
-                  <CardContent className="space-y-5">
-                    <div>
-                      <p className="mb-2 text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
-                        Worker pipeline · {PIPELINE.dau.toLocaleString()} DAU
-                      </p>
-                      <div className="grid grid-cols-2 gap-2">
-                        {(
-                          [
-                            ["Recruit", PIPELINE.recruit, "recruit"],
-                            ["Shadow", PIPELINE.shadow, "shadow-tier"],
-                            ["Pro", PIPELINE.pro, "pro"],
-                            ["Elite", PIPELINE.elite, "elite"],
-                          ] as const
-                        ).map(([label, count, key]) => (
-                          <div
-                            key={label}
-                            className={cn(
-                              "rounded-xl border border-border bg-card p-3 shadow-card transition-shadow",
-                              result.tier === label && "border-primary/40 shadow-elevated",
-                            )}
-                          >
-                            <p className="text-xs font-medium text-muted-foreground">{label}</p>
-                            <p
-                              className="mt-1 text-xl font-semibold tabular tracking-tight"
-                              style={{ color: `var(--${key})` }}
-                            >
-                              {count.toLocaleString()}
-                            </p>
-                            <p className="mt-0.5 text-[11px] text-muted-foreground">
-                              {result.tier === label ? `${member.name.split(" ")[0]} is here` : "\u00a0"}
-                            </p>
-                          </div>
-                        ))}
-                      </div>
-                    </div>
-
-                    <div className="space-y-2 rounded-xl border border-border bg-muted/40 p-3">
-                      <p className="text-sm font-semibold">Incentive to close gaps</p>
-                      <p className="text-xs text-muted-foreground">
-                        Slot bonus ${incentiveUsd} — diminishing returns
-                      </p>
-                      <Slider
-                        min={0}
-                        max={30}
-                        step={1}
-                        value={[incentiveUsd]}
-                        onValueChange={([v]) => setIncentiveUsd(v)}
-                      />
-                      <p className="text-lg font-semibold tabular text-primary">
-                        Expected fill +{market.fillLift}%
-                      </p>
-                    </div>
-
-                    <div className="grid gap-2">
-                      <div className="rounded-xl border border-border bg-muted/40 p-3">
-                        <p className="text-sm font-semibold">Fast-track Shadow → Pro</p>
-                        <p className="mt-1 text-xs text-muted-foreground">
-                          Within 4 pts of Pro · +9% reliability lift illustrative
-                        </p>
-                        <p className="mt-2 text-lg font-semibold tabular text-primary">
-                          Fast-track {market.fastTrackReady}
-                        </p>
-                      </div>
-                      <div className="rounded-xl border border-border bg-muted/40 p-3">
-                        <p className="text-sm font-semibold">Invite recruits</p>
-                        <p className="mt-1 text-xs text-muted-foreground">
-                          Activation stalls after onboarding — true activation is job 3–4
-                        </p>
-                        <p className="mt-2 text-lg font-semibold tabular text-primary">
-                          Invite {market.inviteRecruits.count} ·{" "}
-                          {market.inviteRecruits.expectedConversionPct}% conv.
-                        </p>
-                      </div>
-                    </div>
-
-                    {result.churnRisk.risk ? (
-                      <div className="rounded-xl border border-critical/20 bg-critical-tint px-3 py-2.5 text-xs text-critical">
-                        <strong className="font-semibold">{member.name.split(" ")[0]} churn risk</strong>
-                        {" — "}
-                        {result.churnRisk.reason}
-                      </div>
-                    ) : null}
-                  </CardContent>
-                </Card>
+                <MarketplaceCopilot
+                  recommendations={copilotRecs}
+                  onSeeWorker={(id) => {
+                    selectWorker(id);
+                    setWorkerTab("progress");
+                    goTo("#experience");
+                  }}
+                />
+                <div className="mt-3 rounded-xl border border-border bg-card p-3 shadow-card">
+                  <p className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
+                    Incentive lever · feeds Copilot fill impact
+                  </p>
+                  <Slider
+                    className="mt-2"
+                    min={0}
+                    max={30}
+                    step={1}
+                    value={[incentiveUsd]}
+                    onValueChange={([v]) => setIncentiveUsd(v)}
+                  />
+                  <p className="mt-1 text-sm font-semibold tabular text-primary">
+                    Slot bonus ${incentiveUsd} · expected fill +{market.fillLift}%
+                  </p>
+                </div>
               </motion.div>
             </div>
 
@@ -1101,9 +826,9 @@ export default function HomePage() {
             />
 
             <CapabilityEngineSection
-              worker={capWorker}
+              profiles={allProfiles}
               jobs={CAPABILITY_JOBS}
-              reliability={capabilityReliability}
+              focusWorkerId={selectedId}
             />
           </div>
         </main>

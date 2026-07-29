@@ -15,25 +15,25 @@ export const TIER_ECONOMICS: Record<
   Tier,
   { weeklyUsd: number; unlockLabel: string; headline: string }
 > = {
-  Recruit: {
+  Bronze: {
     weeklyUsd: 0,
     unlockLabel: "Building your record",
     headline: "Prove out with 3 completed jobs",
   },
-  Shadow: {
+  Silver: {
     weeklyUsd: 40,
     unlockLabel: "Standard matching",
-    headline: "Shadow unlocks standard matching ≈ +$40/week",
+    headline: "Silver unlocks standard matching ≈ +$40/week",
   },
-  Pro: {
+  Gold: {
     weeklyUsd: 140,
     unlockLabel: "Priority matching · weekly payout",
-    headline: "Pro unlocks priority matching ≈ +$140/week",
+    headline: "Gold unlocks priority matching ≈ +$140/week",
   },
-  Elite: {
+  Platinum: {
     weeklyUsd: 220,
     unlockLabel: "Top-crew badge · surge access",
-    headline: "Elite unlocks surge + VIP first pick ≈ +$220/week",
+    headline: "Platinum unlocks surge + VIP first pick ≈ +$220/week",
   },
 };
 
@@ -78,17 +78,17 @@ export function tierMoney(s: Signals): TierMoney {
   const current = tier(scoreValue, s.jobsCompleted);
   const next = nextTierName(current);
   const demotion =
-    current === "Pro"
-      ? "Stay above 62 to keep Pro — priority matching is on the line"
-      : current === "Elite"
-        ? "Stay above 90 to keep Elite — surge access is on the line"
+    current === "Gold"
+      ? "Stay above 62 to keep Gold — priority matching is on the line"
+      : current === "Platinum"
+        ? "Stay above 90 to keep Platinum — surge access is on the line"
         : null;
 
   if (!next) {
     return {
       next: null,
-      weeklyUsd: TIER_ECONOMICS.Elite.weeklyUsd,
-      headline: TIER_ECONOMICS.Elite.headline,
+      weeklyUsd: TIER_ECONOMICS.Platinum.weeklyUsd,
+      headline: TIER_ECONOMICS.Platinum.headline,
       demotion,
     };
   }
@@ -117,14 +117,14 @@ export function sinceYouLeft(s: Signals): SinceYouLeftLine[] {
   const money = tierMoney(s);
   const lines: SinceYouLeftLine[] = [];
 
-  if (current === "Recruit") {
+  if (current === "Bronze") {
     const need = Math.max(0, 3 - s.jobsCompleted);
     lines.push({
       id: "activation",
       text:
         need > 0
-          ? `${need} more job${need === 1 ? "" : "s"} to Shadow — true activation starts here`
-          : "You're one clean finish from Shadow",
+          ? `${need} more job${need === 1 ? "" : "s"} to Silver — true activation starts here`
+          : "You're one clean finish from Silver",
       tone: "money",
     });
   } else if (next && pts >= 1 && pts <= 5) {
@@ -170,5 +170,5 @@ export function sinceYouLeft(s: Signals): SinceYouLeftLine[] {
 }
 
 export function tierRank(t: Tier): number {
-  return ["Recruit", "Shadow", "Pro", "Elite"].indexOf(t);
+  return ["Bronze", "Silver", "Gold", "Platinum"].indexOf(t);
 }

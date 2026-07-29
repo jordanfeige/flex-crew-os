@@ -17,7 +17,7 @@ export type Signals = {
   trainingBonus?: number; // 0..6
 };
 
-export type Tier = "Recruit" | "Shadow" | "Pro" | "Elite";
+export type Tier = "Bronze" | "Silver" | "Gold" | "Platinum";
 
 export type BreakdownRow = {
   label: string;
@@ -59,13 +59,13 @@ export function score(s: Signals): number {
 }
 
 export function tier(scoreValue: number, jobsCompleted: number): Tier {
-  if (jobsCompleted < 3) return "Recruit";
-  if (scoreValue < 62) return "Shadow";
-  if (scoreValue < 90) return "Pro";
-  return "Elite";
+  if (jobsCompleted < 3) return "Bronze";
+  if (scoreValue < 62) return "Silver";
+  if (scoreValue < 90) return "Gold";
+  return "Platinum";
 }
 
-/** Nearest score gate: 62 (→ Pro) then 90 (→ Elite). */
+/** Nearest score gate: 62 (→ Gold) then 90 (→ Platinum). */
 export function nextThreshold(scoreValue: number): number {
   if (scoreValue < 62) return 62;
   if (scoreValue < 90) return 90;
@@ -73,23 +73,23 @@ export function nextThreshold(scoreValue: number): number {
 }
 
 export function nextTierName(current: Tier): Tier | null {
-  if (current === "Recruit") return "Shadow";
-  if (current === "Shadow") return "Pro";
-  if (current === "Pro") return "Elite";
+  if (current === "Bronze") return "Silver";
+  if (current === "Silver") return "Gold";
+  if (current === "Gold") return "Platinum";
   return null;
 }
 
 /** Map a score threshold to the tier you clear by reaching it. */
 export function tierClearedByThreshold(threshold: number): Tier {
-  if (threshold <= 62) return "Pro";
-  if (threshold <= 90) return "Elite";
-  return "Elite";
+  if (threshold <= 62) return "Gold";
+  if (threshold <= 90) return "Platinum";
+  return "Platinum";
 }
 
 export function pointsToNextTier(scoreValue: number, jobsCompleted: number): number {
   const t = tier(scoreValue, jobsCompleted);
-  if (t === "Recruit") return Math.max(0, 62 - scoreValue);
-  if (t === "Elite") return 0;
+  if (t === "Bronze") return Math.max(0, 62 - scoreValue);
+  if (t === "Platinum") return 0;
   return Math.max(0, nextThreshold(scoreValue) - scoreValue);
 }
 
@@ -236,17 +236,17 @@ export function tierProb(sc: number, currentScore: number): number {
 }
 
 /**
- * Next-best-action always targets the nearest threshold (62 → Pro, 90 → Elite),
+ * Next-best-action always targets the nearest threshold (62 → Gold, 90 → Platinum),
  * never a far tier. Lever = highest headroom among on-time / acceptance / rating.
  */
 export function nextBestAction(s: Signals): string {
   if (s.jobsCompleted < 3) {
     const need = 3 - s.jobsCompleted;
-    return `Complete ${need} more job${need === 1 ? "" : "s"} to reach Shadow`;
+    return `Complete ${need} more job${need === 1 ? "" : "s"} to reach Silver`;
   }
 
   const current = score(s);
-  if (current >= 90) return "You're Elite — keep your streak to stay there.";
+  if (current >= 90) return "You're Platinum — keep your streak to stay there.";
 
   const threshold = nextThreshold(current);
   const target = tierClearedByThreshold(threshold);
@@ -270,13 +270,13 @@ export function estimatedImpact(s: Signals): EstimatedImpact {
       delta: projected - from,
       probFrom: tierProb(from, from),
       probTo: tierProb(projected, from),
-      nextTier: "Shadow",
+      nextTier: "Silver",
     };
   }
 
-  if (t === "Elite") {
+  if (t === "Platinum") {
     return {
-      action: "Maintain Elite standards",
+      action: "Maintain Platinum standards",
       from,
       to: from,
       delta: 0,
@@ -306,8 +306,8 @@ export function coachNudge(s: Signals): string {
   if (s.jobsCompleted < 3) {
     const need = 3 - s.jobsCompleted;
     return need === 1
-      ? "One more completed job unlocks Shadow — you're proving out"
-      : `${need} more completed jobs unlock Shadow — true activation is job 3–4`;
+      ? "One more completed job unlocks Silver — you're proving out"
+      : `${need} more completed jobs unlock Silver — true activation is job 3–4`;
   }
 
   const scoreValue = score(s);
@@ -411,3 +411,15 @@ export function serviceScoreLabel(service: Service): string {
   };
   return labels[service];
 }
+
+/** Shared intelligence-layer entry points (do not fork in UI). */
+export {
+  buildWorkerProfile,
+  matchScore,
+  matchPct,
+  nextBestActionForProfile,
+  type WorkerProfile,
+  type MatchReason,
+  type MatchResult,
+} from "./worker";
+

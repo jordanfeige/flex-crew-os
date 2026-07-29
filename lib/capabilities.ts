@@ -34,6 +34,18 @@ export const CAPABILITY_LABEL: Record<Capability, string> = {
   packing: "Packing",
 };
 
+export const ALL_CAPABILITIES: Capability[] = [
+  "heavy_lifting",
+  "furniture_assembly",
+  "packing",
+  "driving",
+  "deep_cleaning",
+  "carpet_cleaning",
+  "bathroom_sanitation",
+  "tv_mounting",
+  "appliance_install",
+];
+
 /** Capabilities that feed each service's reliability score. */
 export const SERVICE_CAPABILITIES: Record<Service, Capability[]> = {
   moving: ["heavy_lifting", "furniture_assembly", "packing", "driving"],
@@ -124,7 +136,7 @@ export function jobPayTotal(job: CapabilityJob): number {
   return job.payUsd;
 }
 
-/** % of job.requires the worker has (0–100). */
+/** % of job.requires the worker has (0–100). Prefer explainable matchScore from lib/worker. */
 export function matchScore(
   worker: Pick<CapabilityWorker, "capabilities">,
   job: Pick<CapabilityJob, "requires">,

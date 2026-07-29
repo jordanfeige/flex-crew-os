@@ -83,16 +83,16 @@ export const CREW: CrewMember[] = [
 ];
 
 export const PIPELINE = {
-  recruit: 312,
-  shadow: 428,
-  pro: 1040,
-  elite: 220,
+  bronze: 312,
+  silver: 428,
+  gold: 1040,
+  platinum: 220,
   dau: 2000,
 } as const;
 
 export const PERKS_BY_TIER: Record<Tier, string[]> = {
-  Recruit: ["Building your record"],
-  Shadow: ["Standard matching"],
-  Pro: ["Priority matching", "Weekly payout"],
-  Elite: ["Top-crew badge", "Surge access"],
+  Bronze: ["Building your record"],
+  Silver: ["Standard matching"],
+  Gold: ["Priority matching", "Weekly payout"],
+  Platinum: ["Top-crew badge", "Surge access"],
 };
