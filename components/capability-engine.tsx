@@ -58,8 +58,8 @@ export function CapabilityEngineSection({
           <Badge variant="engine">Configuration</Badge>
         </div>
         <p className="text-sm text-muted-foreground">
-          Jobs don&apos;t define workers — capabilities do. Pick a service; matching
-          is set overlap.
+          Same worker, same capabilities — service is configuration. Matching is set
+          overlap with the Experience column.
         </p>
         <div
           className="flex flex-wrap gap-2"

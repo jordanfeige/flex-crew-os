@@ -58,25 +58,59 @@ export const CAPABILITY_JOBS: CapabilityJob[] = [
     clarity: {
       overview: [
         "2-bedroom apartment",
-        "~3-hour move",
         "2nd-floor pickup",
         "Elevator available",
         "Garage unload",
       ],
+      keyFacts: ["2-bedroom", "2nd-floor pickup", "Elevator", "Garage unload"],
       tasks: [
-        "Wrap TV",
-        "Disassemble queen bed",
-        "Remove wall-mounted TV",
-        "Protect hardwood floors",
-        "Move treadmill",
+        { label: "Wrap TV", sourceTimestamp: 42, sourcePhotoId: "ph-living" },
+        { label: "Disassemble queen bed", sourceTimestamp: 118, sourcePhotoId: "ph-bed" },
+        { label: "Remove wall-mounted TV", sourceTimestamp: 55, sourcePhotoId: "ph-living" },
+        { label: "Protect hardwood floors", sourceTimestamp: 90 },
+        { label: "Move treadmill", sourceTimestamp: 160, sourcePhotoId: "ph-stairs" },
       ],
       equipment: ["Dolly", "Furniture pads", "Ratchet straps", "TV box"],
       heavyItems: ["Piano", "92\" sectional", "Safe"],
-      riskFlags: ["Narrow staircase", "Street parking", "Rain forecast"],
+      access: ["2nd floor", "Elevator available", "Garage unload", "Street parking"],
+      riskFlags: [
+        { label: "Narrow staircase", sourcePhotoId: "ph-stairs", sourceTimestamp: 145 },
+        { label: "Rain forecast" },
+      ],
       estimatedHours: 3.8,
       crewRequired: 3,
       confidencePct: 91,
       pay: { base: 142, mileage: 18, premium: 26 },
+    },
+    media: {
+      video: {
+        url: "https://storage.googleapis.com/gtv-videos-bucket/sample/ForBiggerEscapes.mp4",
+        durationSec: 186,
+        poster:
+          "https://images.unsplash.com/photo-1600585154340-be6161a56a0c?w=800&q=80&auto=format&fit=crop",
+      },
+      photos: [
+        {
+          id: "ph-living",
+          url: "https://images.unsplash.com/photo-1586023492125-27b2c045efd7?w=600&q=80&auto=format&fit=crop",
+          caption: "Living room · wall-mounted TV + sectional",
+        },
+        {
+          id: "ph-bed",
+          url: "https://images.unsplash.com/photo-1505693416388-ac5ce068fe85?w=600&q=80&auto=format&fit=crop",
+          caption: "Bedroom · queen bed to disassemble",
+        },
+        {
+          id: "ph-stairs",
+          url: "https://images.unsplash.com/photo-1600566753190-17f0baa2a6c3?w=600&q=80&auto=format&fit=crop",
+          caption: "Staircase · narrow turn — piano path",
+        },
+        {
+          id: "ph-garage",
+          url: "https://images.unsplash.com/photo-1558618666-fcd25c85cd64?w=600&q=80&auto=format&fit=crop",
+          caption: "Garage unload · truck staging",
+        },
+      ],
     },
   },
   {

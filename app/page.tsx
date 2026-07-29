@@ -5,23 +5,29 @@ import { motion, useReducedMotion, AnimatePresence } from "framer-motion";
 import {
   BookOpen,
   Boxes,
+  ChevronDown,
   Flame,
   GraduationCap,
   Inbox,
   Radio,
   Shield,
-  Smartphone,
   Sparkles,
   TrendingUp,
   Users,
   DollarSign,
 } from "lucide-react";
-import { CREW, MATCHED_JOBS, PERKS_BY_TIER, PIPELINE, type CrewMember } from "@/lib/data";
+import { CREW, PERKS_BY_TIER, PIPELINE, type CrewMember } from "@/lib/data";
 import {
   CAPABILITY_JOBS,
   SEED_REVIEWS,
   capabilityWorkerById,
 } from "@/data/reviews";
+import {
+  CAPABILITY_LABEL,
+  jobPayTotal,
+  matchScore,
+  type CapabilityJob,
+} from "@/lib/capabilities";
 import { evaluateMarketplace } from "@/lib/marketplace";
 import {
   evaluate,
@@ -41,7 +47,11 @@ import {
 import { CapabilityEngineSection } from "@/components/capability-engine";
 import { EnginePipeline } from "@/components/engine-pipeline";
 import { MarketplaceHero } from "@/components/marketplace-hero";
-import { WorkerAppShell } from "@/components/worker-app/shell";
+import { JobCard } from "@/components/worker/job-card";
+import { ProgressRing } from "@/components/worker/progress-ring";
+import { WorkerLanding } from "@/components/worker/landing";
+import { JobClarityScreen } from "@/components/worker-app/job-clarity";
+import { RatingModal } from "@/components/worker-app/rating-modal";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -64,65 +74,10 @@ const TIERS: Tier[] = ["Recruit", "Shadow", "Pro", "Elite"];
 const NAV = [
   { href: "#marketplace-hero", label: "Marketplace", icon: TrendingUp },
   { href: "#simulator", label: "Simulator", icon: Radio },
-  { href: "#worker-app", label: "Worker app", icon: Smartphone },
   { href: "#experience", label: "Experience", icon: Users },
   { href: "#engine", label: "Engine", icon: Shield },
   { href: "#capability-engine", label: "Capabilities", icon: Boxes },
 ] as const;
-
-function ProgressRing({
-  value,
-  color,
-  label,
-  sub,
-}: {
-  value: number;
-  color: string;
-  label: string;
-  sub: string;
-}) {
-  const reduce = useReducedMotion();
-  const r = 48;
-  const c = 2 * Math.PI * r;
-  const pct = Math.min(100, Math.max(0, value)) / 100;
-  const dash = c * pct;
-
-  return (
-    <div className="relative h-[120px] w-[120px] shrink-0">
-      <svg viewBox="0 0 120 120" className="h-full w-full -rotate-90" aria-hidden>
-        <circle cx="60" cy="60" r={r} fill="none" stroke="var(--border)" strokeWidth="9" />
-        <motion.circle
-          cx="60"
-          cy="60"
-          r={r}
-          fill="none"
-          stroke={color}
-          strokeWidth="9"
-          strokeLinecap="round"
-          initial={false}
-          animate={{ strokeDasharray: `${dash} ${c - dash}` }}
-          transition={reduce ? { duration: 0 } : { type: "spring", stiffness: 120, damping: 20 }}
-        />
-      </svg>
-      <div className="absolute inset-0 flex flex-col items-center justify-center text-center">
-        <AnimatePresence mode="wait">
-          <motion.span
-            key={label}
-            initial={reduce ? false : { opacity: 0, y: 4 }}
-            animate={{ opacity: 1, y: 0 }}
-            exit={reduce ? undefined : { opacity: 0, y: -4 }}
-            className="text-2xl font-semibold tabular tracking-tight"
-          >
-            {label}
-          </motion.span>
-        </AnimatePresence>
-        <span className="mt-0.5 max-w-[4.5rem] text-[10px] leading-tight text-muted-foreground">
-          {sub}
-        </span>
-      </div>
-    </div>
-  );
-}
 
 function Stepper({
   value,
@@ -179,19 +134,27 @@ export default function HomePage() {
   );
   const [highlightExperience, setHighlightExperience] = useState(false);
   const [reviews, setReviews] = useState<Review[]>(() => [...SEED_REVIEWS]);
-  const [capabilityOverride, setCapabilityOverride] = useState<
-    import("@/lib/capabilities").Capability[] | null
-  >(null);
+  const [clarityJob, setClarityJob] = useState<CapabilityJob | null>(null);
+  const [ratingJob, setRatingJob] = useState<CapabilityJob | null>(null);
+  /** Home (landing) | Progress (engagement) — one worker home, two segments. */
+  const [workerTab, setWorkerTab] = useState<"home" | "progress">("home");
+  const [weekEarnings, setWeekEarnings] = useState(0);
+  /** Collapsed by default so Worker / Capability Engine stay in view. */
+  const [simOpen, setSimOpen] = useState(false);
 
   function goTo(href: string) {
     setActiveNav(href);
     if (href === "#simulator") {
+      setSimOpen(true);
       if (window.matchMedia("(min-width: 768px)").matches) {
         mainRef.current?.scrollTo({ top: 0, behavior: "smooth" });
       } else {
         window.scrollTo({ top: 0, behavior: "smooth" });
       }
       return;
+    }
+    if (href === "#capability-engine" || href === "#experience") {
+      setSimOpen(false);
     }
     const el = document.querySelector(href);
     el?.scrollIntoView({ behavior: "smooth", block: "start" });
@@ -209,7 +172,10 @@ export default function HomePage() {
     setSelectedId(id);
     setSignals(nextSignals);
     setGraduation(null);
-    setCapabilityOverride(null);
+    setClarityJob(null);
+    setRatingJob(null);
+    setWorkerTab("home");
+    setWeekEarnings(0);
     prevTierRef.current = evaluate(nextSignals).tier;
   }
 
@@ -233,11 +199,7 @@ export default function HomePage() {
   }
 
   const result = useMemo(() => evaluate(signals), [signals]);
-  const capWorker = useMemo(() => {
-    const base = capabilityWorkerById(selectedId);
-    if (!capabilityOverride) return base;
-    return { ...base, capabilities: capabilityOverride };
-  }, [selectedId, capabilityOverride]);
+  const capWorker = useMemo(() => capabilityWorkerById(selectedId), [selectedId]);
   const capabilityReliability = useMemo(
     () =>
       evaluateCapabilityReliability(selectedId, capWorker.capabilities, reviews),
@@ -249,13 +211,45 @@ export default function HomePage() {
   );
   const next = nextTierName(result.tier);
   const training = signals.trainingBonus ?? 0;
-  const jobs = MATCHED_JOBS[result.tier];
+  /** One job catalog — capability match, pay from CAPABILITY_JOBS (no MATCHED_JOBS fork). */
+  const personalizedJobs = useMemo(() => {
+    return [...CAPABILITY_JOBS]
+      .map((job) => ({ job, match: matchScore(capWorker, job) }))
+      .sort((a, b) => {
+        const ca = a.job.clarity ? 1 : 0;
+        const cb = b.job.clarity ? 1 : 0;
+        if (cb !== ca) return cb - ca;
+        return b.match - a.match;
+      })
+      .slice(0, 3);
+  }, [capWorker]);
+  const nearbyPayTotal = useMemo(
+    () => personalizedJobs.reduce((sum, { job }) => sum + jobPayTotal(job), 0),
+    [personalizedJobs],
+  );
+  /** Luke: activation = first job completed (not onboarding). */
+  const activated = signals.jobsCompleted >= 1;
+  const landingNba = !activated
+    ? "Claim & complete your first move to activate"
+    : result.nextBestAction;
+  const weekGoal = 400 + TIER_ECONOMICS[result.tier].weeklyUsd;
+  const displayWeekEarnings = activated
+    ? weekEarnings + Math.round(120 + signals.jobsCompleted * 18)
+    : weekEarnings;
   const perks = PERKS_BY_TIER[result.tier];
   const member: CrewMember = CREW.find((c) => c.id === selectedId) ?? CREW[0];
   const impact = result.estimatedImpact;
   const money = useMemo(() => tierMoney(signals), [signals]);
   const streak = useMemo(() => onTimeStreak(signals), [signals]);
   const dryOpen = useMemo(() => sinceYouLeft(signals), [signals]);
+
+  function claimJob(job: CapabilityJob) {
+    const pay = jobPayTotal(job);
+    setClarityJob(null);
+    setWeekEarnings((e) => e + pay);
+    patch({ jobsCompleted: signals.jobsCompleted + 1 });
+    setRatingJob(job);
+  }
 
   useEffect(() => {
     const prev = prevTierRef.current;
@@ -274,6 +268,28 @@ export default function HomePage() {
       prevTierRef.current = result.tier;
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  // Auto-collapse simulator when Capability Engine enters view
+  useEffect(() => {
+    const target = document.querySelector("#capability-engine");
+    if (!target) return;
+
+    const mq = window.matchMedia("(min-width: 768px)");
+    const observer = new IntersectionObserver(
+      (entries) => {
+        if (entries.some((e) => e.isIntersecting)) {
+          setSimOpen(false);
+        }
+      },
+      {
+        root: mq.matches ? mainRef.current : null,
+        threshold: 0.2,
+        rootMargin: "0px 0px -35% 0px",
+      },
+    );
+    observer.observe(target);
+    return () => observer.disconnect();
   }, []);
 
   const ptsLabel =
@@ -354,19 +370,43 @@ export default function HomePage() {
           </div>
         </header>
 
-        {/* Mobile: scrolls with page · Desktop: pinned under top nav */}
+        {/* Collapsible control strip — collapsed by default for demo canvas */}
         <div
           id="simulator"
-          className="z-40 shrink-0 border-b border-border bg-card px-4 py-3 md:px-6 lg:px-8"
+          className="z-40 shrink-0 border-b border-border bg-card px-4 py-2.5 md:px-6 lg:px-8"
         >
           <Card className="mx-auto max-w-[1280px] shadow-elevated">
-            <CardHeader className="flex-row items-start justify-between gap-3 space-y-0 border-b-0 pb-0 sm:items-center">
-              <div>
-                <CardTitle className="text-sm">Simulator · {member.name}</CardTitle>
+            <div className="flex flex-col gap-2 px-4 py-3 sm:flex-row sm:items-center sm:justify-between sm:gap-3">
+              <div className="flex min-w-0 flex-1 flex-wrap items-center gap-2">
+                <p className="text-sm font-semibold tracking-tight">
+                  Simulator · {member.name}
+                </p>
+                <span
+                  className="rounded-full px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-white"
+                  style={{ background: tierCss(result.tier) }}
+                >
+                  {result.tier}
+                </span>
+                <span className="rounded-md bg-muted px-2 py-0.5 text-[11px] font-semibold tabular text-foreground">
+                  {result.score}
+                </span>
+                {!simOpen ? (
+                  <>
+                    <span className="hidden text-[11px] tabular text-muted-foreground sm:inline">
+                      On-time {Math.round(signals.onTimeRate * 100)}%
+                    </span>
+                    <span className="hidden text-[11px] tabular text-muted-foreground md:inline">
+                      Accept {Math.round(signals.acceptanceRate * 100)}%
+                    </span>
+                    <span className="hidden text-[11px] tabular text-muted-foreground lg:inline">
+                      ★ {signals.avgRating.toFixed(2)}
+                    </span>
+                  </>
+                ) : null}
               </div>
               <div className="flex flex-wrap items-center gap-2">
                 <select
-                  className="h-9 rounded-lg border border-border bg-card px-3 text-sm shadow-card"
+                  className="h-8 max-w-[200px] rounded-lg border border-border bg-card px-2.5 text-xs shadow-card sm:max-w-none sm:text-sm"
                   value={selectedId}
                   onChange={(e) => selectWorker(e.target.value)}
                   aria-label="Worker"
@@ -377,94 +417,141 @@ export default function HomePage() {
                     </option>
                   ))}
                 </select>
-                <Button type="button" variant="link" className="h-auto px-0" onClick={resetSeed}>
-                  Reset to seed
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  className="h-8 gap-1"
+                  aria-expanded={simOpen}
+                  onClick={() => setSimOpen((o) => !o)}
+                >
+                  {simOpen ? "Hide signals" : "Edit signals"}
+                  <ChevronDown
+                    className={cn(
+                      "h-3.5 w-3.5 transition-transform",
+                      simOpen && "rotate-180",
+                    )}
+                  />
                 </Button>
               </div>
-            </CardHeader>
-            <CardContent
-              key={selectedId}
-              className="grid gap-4 pt-4 sm:grid-cols-2 lg:grid-cols-3"
-            >
-              <div className="space-y-2">
-                <div className="flex justify-between text-xs text-muted-foreground">
-                  <span>On-time</span>
-                  <span className="font-semibold tabular text-foreground">
-                    {Math.round(signals.onTimeRate * 100)}%
-                  </span>
-                </div>
-                <input
-                  key={`${selectedId}-onTime`}
-                  type="range"
-                  min={0}
-                  max={100}
-                  step={1}
-                  autoComplete="off"
-                  className="w-full accent-[var(--primary)]"
-                  value={Math.round(signals.onTimeRate * 100)}
-                  onChange={(e) => patch({ onTimeRate: Number(e.target.value) / 100 })}
-                  aria-label="On-time rate"
-                />
-              </div>
-              <div className="space-y-2">
-                <div className="flex justify-between text-xs text-muted-foreground">
-                  <span>Acceptance</span>
-                  <span className="font-semibold tabular text-foreground">
-                    {Math.round(signals.acceptanceRate * 100)}%
-                  </span>
-                </div>
-                <input
-                  key={`${selectedId}-acceptance`}
-                  type="range"
-                  min={0}
-                  max={100}
-                  step={1}
-                  className="w-full accent-[var(--primary)]"
-                  value={Math.round(signals.acceptanceRate * 100)}
-                  onChange={(e) =>
-                    patch({ acceptanceRate: Number(e.target.value) / 100 })
-                  }
-                  aria-label="Acceptance rate"
-                />
-              </div>
-              <div className="space-y-2">
-                <div className="flex justify-between text-xs text-muted-foreground">
-                  <span>Avg rating</span>
-                  <span className="font-semibold tabular text-foreground">
-                    {signals.avgRating.toFixed(2)}
-                  </span>
-                </div>
-                <input
-                  key={`${selectedId}-rating`}
-                  type="range"
-                  min={0}
-                  max={500}
-                  step={1}
-                  className="w-full accent-[var(--primary)]"
-                  value={Math.round(signals.avgRating * 100)}
-                  onChange={(e) => patch({ avgRating: Number(e.target.value) / 100 })}
-                  aria-label="Average rating"
-                />
-              </div>
-              <div className="space-y-2">
-                <p className="text-xs text-muted-foreground">Jobs completed</p>
-                <Stepper
-                  value={signals.jobsCompleted}
-                  onChange={(n) => patch({ jobsCompleted: n })}
-                />
-              </div>
-              <div className="space-y-2">
-                <p className="text-xs text-muted-foreground">Late cancellations</p>
-                <Stepper
-                  value={signals.lateCancellations}
-                  onChange={(n) => patch({ lateCancellations: n })}
-                />
-              </div>
-              <div className="space-y-2">
-                <p className="text-xs text-muted-foreground">No-shows</p>
-                <Stepper value={signals.noShows} onChange={(n) => patch({ noShows: n })} />
-              </div>
-            </CardContent>
+            </div>
+
+            <AnimatePresence initial={false}>
+              {simOpen ? (
+                <motion.div
+                  key="sim-controls"
+                  initial={reduce ? false : { height: 0, opacity: 0 }}
+                  animate={{ height: "auto", opacity: 1 }}
+                  exit={reduce ? undefined : { height: 0, opacity: 0 }}
+                  transition={{ duration: 0.22, ease: "easeOut" }}
+                  className="overflow-hidden"
+                >
+                  <div className="flex items-center justify-between gap-2 border-t border-border px-4 pt-2">
+                    <p className="text-[11px] text-muted-foreground">
+                      Nudge signals — every surface recomputes from one engine
+                    </p>
+                    <Button
+                      type="button"
+                      variant="link"
+                      className="h-auto px-0 text-xs"
+                      onClick={resetSeed}
+                    >
+                      Reset to seed
+                    </Button>
+                  </div>
+                  <CardContent
+                    key={selectedId}
+                    className="grid gap-4 pb-4 pt-3 sm:grid-cols-2 lg:grid-cols-3"
+                  >
+                    <div className="space-y-2">
+                      <div className="flex justify-between text-xs text-muted-foreground">
+                        <span>On-time</span>
+                        <span className="font-semibold tabular text-foreground">
+                          {Math.round(signals.onTimeRate * 100)}%
+                        </span>
+                      </div>
+                      <input
+                        key={`${selectedId}-onTime`}
+                        type="range"
+                        min={0}
+                        max={100}
+                        step={1}
+                        autoComplete="off"
+                        className="w-full accent-[var(--primary)]"
+                        value={Math.round(signals.onTimeRate * 100)}
+                        onChange={(e) =>
+                          patch({ onTimeRate: Number(e.target.value) / 100 })
+                        }
+                        aria-label="On-time rate"
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <div className="flex justify-between text-xs text-muted-foreground">
+                        <span>Acceptance</span>
+                        <span className="font-semibold tabular text-foreground">
+                          {Math.round(signals.acceptanceRate * 100)}%
+                        </span>
+                      </div>
+                      <input
+                        key={`${selectedId}-acceptance`}
+                        type="range"
+                        min={0}
+                        max={100}
+                        step={1}
+                        className="w-full accent-[var(--primary)]"
+                        value={Math.round(signals.acceptanceRate * 100)}
+                        onChange={(e) =>
+                          patch({ acceptanceRate: Number(e.target.value) / 100 })
+                        }
+                        aria-label="Acceptance rate"
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <div className="flex justify-between text-xs text-muted-foreground">
+                        <span>Avg rating</span>
+                        <span className="font-semibold tabular text-foreground">
+                          {signals.avgRating.toFixed(2)}
+                        </span>
+                      </div>
+                      <input
+                        key={`${selectedId}-rating`}
+                        type="range"
+                        min={0}
+                        max={500}
+                        step={1}
+                        className="w-full accent-[var(--primary)]"
+                        value={Math.round(signals.avgRating * 100)}
+                        onChange={(e) =>
+                          patch({ avgRating: Number(e.target.value) / 100 })
+                        }
+                        aria-label="Average rating"
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <p className="text-xs text-muted-foreground">Jobs completed</p>
+                      <Stepper
+                        value={signals.jobsCompleted}
+                        onChange={(n) => patch({ jobsCompleted: n })}
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <p className="text-xs text-muted-foreground">Late cancellations</p>
+                      <Stepper
+                        value={signals.lateCancellations}
+                        onChange={(n) => patch({ lateCancellations: n })}
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <p className="text-xs text-muted-foreground">No-shows</p>
+                      <Stepper
+                        value={signals.noShows}
+                        onChange={(n) => patch({ noShows: n })}
+                      />
+                    </div>
+                  </CardContent>
+                </motion.div>
+              ) : null}
+            </AnimatePresence>
           </Card>
         </div>
 
@@ -486,7 +573,7 @@ export default function HomePage() {
                 )}
                 {...fade}
               >
-                <Card className="relative h-full overflow-hidden">
+                <Card className="relative h-full min-h-[520px] overflow-hidden">
                   <AnimatePresence>
                     {graduation ? (
                       <motion.div
@@ -531,13 +618,79 @@ export default function HomePage() {
                     ) : null}
                   </AnimatePresence>
 
-                  <CardHeader>
+                  {/* Job Clarity — same column, existing card chrome */}
+                  <AnimatePresence>
+                    {clarityJob ? (
+                      <motion.div
+                        key={clarityJob.id}
+                        initial={reduce ? false : { opacity: 0, x: 12 }}
+                        animate={{ opacity: 1, x: 0 }}
+                        exit={reduce ? undefined : { opacity: 0, x: 8 }}
+                        className="absolute inset-0 z-30 flex flex-col bg-card"
+                      >
+                        <JobClarityScreen
+                          job={clarityJob}
+                          onBack={() => setClarityJob(null)}
+                          onClaim={() => claimJob(clarityJob)}
+                        />
+                      </motion.div>
+                    ) : null}
+                  </AnimatePresence>
+
+                  <CardHeader className="space-y-3">
                     <div className="flex items-center gap-2">
                       <CardTitle>Worker experience</CardTitle>
                       <Badge variant="live">Engagement</Badge>
                     </div>
+                    <div
+                      className="flex rounded-lg border border-border bg-muted/40 p-0.5"
+                      role="tablist"
+                      aria-label="Worker sections"
+                    >
+                      {(
+                        [
+                          ["home", "Home"],
+                          ["progress", "Progress"],
+                        ] as const
+                      ).map(([id, label]) => (
+                        <button
+                          key={id}
+                          type="button"
+                          role="tab"
+                          aria-selected={workerTab === id}
+                          onClick={() => setWorkerTab(id)}
+                          className={cn(
+                            "flex-1 rounded-md px-3 py-1.5 text-xs font-semibold transition-colors",
+                            workerTab === id
+                              ? "bg-card text-foreground shadow-card"
+                              : "text-muted-foreground hover:text-foreground",
+                          )}
+                        >
+                          {label}
+                        </button>
+                      ))}
+                    </div>
                   </CardHeader>
                   <CardContent className="space-y-5">
+                    {workerTab === "home" ? (
+                      <WorkerLanding
+                        name={member.name}
+                        city={member.city}
+                        avatar={member.avatar}
+                        result={result}
+                        ptsLabel={ptsLabel}
+                        activated={activated}
+                        nearbyPayTotal={nearbyPayTotal}
+                        nextBestAction={landingNba}
+                        jobs={personalizedJobs}
+                        weekEarnings={displayWeekEarnings}
+                        weekGoal={weekGoal}
+                        onOpenJob={(job) => setClarityJob(job)}
+                        onOpenProgress={() => setWorkerTab("progress")}
+                        onPrimaryAction={() => setWorkerTab("progress")}
+                      />
+                    ) : (
+                      <>
                     <div className="flex items-center gap-3">
                       <div
                         className="grid h-11 w-11 place-items-center rounded-full text-sm font-semibold text-white"
@@ -555,6 +708,15 @@ export default function HomePage() {
                       >
                         {result.tier}
                       </Badge>
+                      {activated ? (
+                        <Badge variant="live" className="normal-case tracking-normal">
+                          Active
+                        </Badge>
+                      ) : (
+                        <Badge variant="warn" className="normal-case tracking-normal">
+                          Not active
+                        </Badge>
+                      )}
                     </div>
 
                     <div className="flex items-center gap-4">
@@ -596,6 +758,13 @@ export default function HomePage() {
                             );
                           })}
                         </div>
+                        <p className="text-[11px] text-muted-foreground">
+                          Capability overall{" "}
+                          <span className="font-semibold tabular text-foreground">
+                            {capabilityReliability.overall}
+                          </span>
+                          <span className="text-muted-foreground"> · from reviews</span>
+                        </p>
                       </div>
                     </div>
 
@@ -682,6 +851,28 @@ export default function HomePage() {
                       </div>
                     </div>
 
+                    <div>
+                      <p className="mb-1.5 text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
+                        Capabilities
+                      </p>
+                      <div className="flex flex-wrap gap-1.5">
+                        {capWorker.capabilities.map((c) => (
+                          <span
+                            key={c}
+                            className="rounded-md bg-accent px-2 py-1 text-[11px] font-medium text-accent-foreground"
+                          >
+                            {CAPABILITY_LABEL[c]}
+                          </span>
+                        ))}
+                      </div>
+                      <p className="mt-1.5 text-[11px] text-muted-foreground">
+                        Moving {capabilityReliability.byService.moving} · Cleaning{" "}
+                        {capabilityReliability.byService.cleaning} · Delivery{" "}
+                        {capabilityReliability.byService.delivery} · Install{" "}
+                        {capabilityReliability.byService.install}
+                      </p>
+                    </div>
+
                     <Card className="border-primary/20 bg-muted/40 shadow-none">
                       <CardContent className="space-y-3 p-4">
                         <div className="flex items-center gap-2 text-sm font-semibold">
@@ -752,19 +943,13 @@ export default function HomePage() {
                         {(result.tier === "Pro" || result.tier === "Elite") && " · priority"}
                       </p>
                       <div className="space-y-1.5">
-                        {jobs.map((j) => (
-                          <div
-                            key={j.title}
-                            className="flex items-start justify-between gap-2 rounded-lg border border-border bg-card px-3 py-2"
-                          >
-                            <div>
-                              <p className="text-xs font-medium">{j.title}</p>
-                              <p className="text-[11px] text-muted-foreground">{j.note}</p>
-                            </div>
-                            <span className="text-xs font-semibold tabular text-primary">
-                              {j.pay}
-                            </span>
-                          </div>
+                        {personalizedJobs.map(({ job, match }) => (
+                          <JobCard
+                            key={job.id}
+                            job={job}
+                            match={match}
+                            onOpen={() => setClarityJob(job)}
+                          />
                         ))}
                       </div>
                     </div>
@@ -783,8 +968,11 @@ export default function HomePage() {
                       </span>
                       <span className="pl-6 text-[11px] font-normal leading-snug opacity-90">
                         Training bonus {training}/6{training >= 6 ? " · capped" : ""}
+                        {" · education over deprioritize"}
                       </span>
                     </Button>
+                      </>
+                    )}
                   </CardContent>
                 </Card>
               </motion.div>
@@ -901,16 +1089,14 @@ export default function HomePage() {
               </motion.div>
             </div>
 
-            <WorkerAppShell
+            <RatingModal
+              open={ratingJob != null}
+              job={ratingJob}
               workerId={selectedId}
-              workerName={member.name}
-              signals={signals}
-              capabilities={capWorker.capabilities}
-              reviews={reviews}
-              onAppendReview={(review) => setReviews((prev) => [...prev, review])}
-              onCapabilitiesCommit={(caps) => setCapabilityOverride(caps)}
-              onActivateFirstJob={() => {
-                patch({ jobsCompleted: signals.jobsCompleted + 1 });
+              onClose={() => setRatingJob(null)}
+              onSubmit={(review) => {
+                setReviews((prev) => [...prev, review]);
+                setRatingJob(null);
               }}
             />
 

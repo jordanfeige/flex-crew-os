@@ -61,19 +61,68 @@ export type CapabilityJob = {
   requires: Capability[];
   /** Optional clarity payload for Job Clarity screen */
   clarity?: JobClarity;
+  /** Customer walkthrough source media — AI summary receipts */
+  media?: JobMedia;
+};
+
+export type JobMediaPhoto = {
+  id: string;
+  url: string;
+  caption: string;
+};
+
+export type JobMediaVideo = {
+  url: string;
+  durationSec: number;
+  poster: string;
+};
+
+export type JobMedia = {
+  video?: JobMediaVideo;
+  photos: JobMediaPhoto[];
+};
+
+export type JobClarityTask = {
+  label: string;
+  /** Jump to walkthrough moment (demo hook). */
+  sourceTimestamp?: number;
+  sourcePhotoId?: string;
 };
 
 export type JobClarity = {
   overview: string[];
-  tasks: string[];
+  /** Compact chips under the hero — no duration (lives in hero only). */
+  keyFacts?: string[];
+  tasks: string[] | JobClarityTask[];
   equipment: string[];
   heavyItems: string[];
-  riskFlags: string[];
+  /** Logistics (floor, elevator, parking) — not risks. */
+  access?: string[];
+  /** Genuine risks only (no parking-as-danger). */
+  riskFlags: Array<string | { label: string; sourceTimestamp?: number; sourcePhotoId?: string }>;
   estimatedHours: number;
   crewRequired: number;
   confidencePct: number;
   pay: { base: number; mileage: number; premium: number };
 };
+
+export function taskLabel(t: string | JobClarityTask): string {
+  return typeof t === "string" ? t : t.label;
+}
+
+export function riskLabel(
+  r: string | { label: string; sourceTimestamp?: number; sourcePhotoId?: string },
+): string {
+  return typeof r === "string" ? r : r.label;
+}
+
+export function jobPayTotal(job: CapabilityJob): number {
+  if (job.clarity) {
+    const p = job.clarity.pay;
+    return p.base + p.mileage + p.premium;
+  }
+  return job.payUsd;
+}
 
 /** % of job.requires the worker has (0–100). */
 export function matchScore(

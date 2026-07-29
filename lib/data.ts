@@ -96,28 +96,3 @@ export const PERKS_BY_TIER: Record<Tier, string[]> = {
   Pro: ["Priority matching", "Weekly payout"],
   Elite: ["Top-crew badge", "Surge access"],
 };
-
-export const MATCHED_JOBS: Record<
-  Tier,
-  { title: string; pay: string; note: string }[]
-> = {
-  Recruit: [
-    { title: "Studio move · 2 hrs", pay: "$48", note: "Good proving job nearby" },
-    { title: "Storage load-out", pay: "$62", note: "Partnered with a Pro" },
-  ],
-  Shadow: [
-    { title: "2BR apartment move", pay: "$96", note: "Standard match" },
-    { title: "Office clear-out", pay: "$110", note: "Sat AM · short drive" },
-    { title: "Piano assist", pay: "$85", note: "Training credit eligible" },
-  ],
-  Pro: [
-    { title: "Priority · 3BR house", pay: "$168", note: "Pro early access" },
-    { title: "Priority · Same-day condo", pay: "$142", note: "Pro early access" },
-    { title: "Corporate relocation", pay: "$210", note: "High rating required" },
-  ],
-  Elite: [
-    { title: "Priority · Estate move", pay: "$320", note: "Elite first pick" },
-    { title: "Priority · White-glove", pay: "$280", note: "Elite first pick" },
-    { title: "VIP same-day", pay: "$240", note: "Reserved for Elite" },
-  ],
-};
