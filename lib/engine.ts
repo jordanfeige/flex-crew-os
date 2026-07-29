@@ -1,3 +1,12 @@
+import type { Capability, Service } from "./capabilities";
+import {
+  capabilityReliabilityBreakdown,
+  type CapabilityReliabilityBreakdown,
+  type Review,
+} from "./reviews";
+
+export type { CapabilityReliabilityBreakdown, Review };
+
 export type Signals = {
   onTimeRate: number; // 0..1
   avgRating: number; // 0..5
@@ -354,4 +363,51 @@ export function evaluate(s: Signals): ScorePayload {
     nextThreshold: nextThreshold(scoreValue),
     estimatedImpact: estimatedImpact(s),
   };
+}
+
+// ── Capability reliability (reviews feed the engine) ───────────────────────
+
+/**
+ * Overall + per-service reliability from capability-tagged reviews.
+ * Missing capabilities drag the related service score down.
+ */
+export function evaluateCapabilityReliability(
+  workerId: string,
+  workerCapabilities: Capability[],
+  reviews: Review[],
+): CapabilityReliabilityBreakdown {
+  return capabilityReliabilityBreakdown(reviews, workerId, workerCapabilities);
+}
+
+export type FullEvaluatePayload = ScorePayload & {
+  capabilityReliability: CapabilityReliabilityBreakdown;
+};
+
+/** Signals score + review-backed capability reliability — one evaluate path. */
+export function evaluateFull(
+  s: Signals,
+  opts: {
+    workerId: string;
+    capabilities: Capability[];
+    reviews: Review[];
+  },
+): FullEvaluatePayload {
+  return {
+    ...evaluate(s),
+    capabilityReliability: evaluateCapabilityReliability(
+      opts.workerId,
+      opts.capabilities,
+      opts.reviews,
+    ),
+  };
+}
+
+export function serviceScoreLabel(service: Service): string {
+  const labels: Record<Service, string> = {
+    moving: "Moving",
+    cleaning: "Cleaning",
+    delivery: "Delivery",
+    install: "Install",
+  };
+  return labels[service];
 }

@@ -3,8 +3,10 @@
 import { useEffect, useState } from "react";
 import { motion, useReducedMotion, AnimatePresence } from "framer-motion";
 import { ChevronDown } from "lucide-react";
+import type { CapabilityReliabilityBreakdown } from "@/lib/reviews";
 import type { ScorePayload, Signals, Tier } from "@/lib/engine";
 import type { MarketplacePayload } from "@/lib/marketplace";
+import { SERVICE_LABEL, SERVICES } from "@/lib/capabilities";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { cn } from "@/lib/utils";
@@ -99,12 +101,14 @@ export function EnginePipeline({
   result,
   market,
   pulseKey,
+  capabilityReliability,
 }: {
   signals: Signals;
   result: ScorePayload;
   market: MarketplacePayload;
   /** Bumps when signals change — drives pulse animation. */
   pulseKey: string;
+  capabilityReliability: CapabilityReliabilityBreakdown;
 }) {
   const reduce = useReducedMotion();
   const [phase, setPhase] = useState<"idle" | "signals" | "engine" | "outputs">("idle");
@@ -231,7 +235,7 @@ export function EnginePipeline({
                   {result.score}
                 </motion.p>
               </AnimatePresence>
-              <p className="text-xs text-muted-foreground">Live score</p>
+              <p className="text-xs text-muted-foreground">Live score · signals</p>
             </div>
             <div className="text-right">
               <p className="text-lg font-semibold" style={{ color: tierColor(result.tier) }}>
@@ -241,6 +245,41 @@ export function EnginePipeline({
                 Next gate {result.nextThreshold}
               </p>
             </div>
+          </div>
+
+          {/* Per-capability reliability from reviews */}
+          <div className="mt-3 rounded-lg border border-border bg-muted/40 px-3 py-2.5">
+            <div className="flex items-baseline justify-between gap-2">
+              <p className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
+                Overall reliability
+              </p>
+              <motion.p
+                key={capabilityReliability.overall}
+                initial={reduce ? false : { opacity: 0.4 }}
+                animate={{ opacity: 1 }}
+                className="text-xl font-semibold tabular tracking-tight"
+              >
+                {capabilityReliability.overall}
+              </motion.p>
+            </div>
+            <div className="mt-2 grid grid-cols-2 gap-x-3 gap-y-1.5">
+              {SERVICES.map((s) => (
+                <div key={s} className="flex items-center justify-between gap-2 text-xs">
+                  <span className="text-muted-foreground">{SERVICE_LABEL[s]}</span>
+                  <motion.span
+                    key={`${s}-${capabilityReliability.byService[s]}`}
+                    initial={reduce ? false : { opacity: 0.4 }}
+                    animate={{ opacity: 1 }}
+                    className="font-semibold tabular text-foreground"
+                  >
+                    {capabilityReliability.byService[s]}
+                  </motion.span>
+                </div>
+              ))}
+            </div>
+            <p className="mt-2 text-[10px] text-muted-foreground">
+              From capability-tagged reviews · missing caps drag the service score
+            </p>
           </div>
 
           <button

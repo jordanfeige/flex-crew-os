@@ -4,24 +4,33 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { motion, useReducedMotion, AnimatePresence } from "framer-motion";
 import {
   BookOpen,
+  Boxes,
   Flame,
   GraduationCap,
   Inbox,
   Radio,
   Shield,
+  Smartphone,
   Sparkles,
   TrendingUp,
   Users,
   DollarSign,
 } from "lucide-react";
 import { CREW, MATCHED_JOBS, PERKS_BY_TIER, PIPELINE, type CrewMember } from "@/lib/data";
+import {
+  CAPABILITY_JOBS,
+  SEED_REVIEWS,
+  capabilityWorkerById,
+} from "@/data/reviews";
 import { evaluateMarketplace } from "@/lib/marketplace";
 import {
   evaluate,
+  evaluateCapabilityReliability,
   nextTierName,
   type Signals,
   type Tier,
 } from "@/lib/engine";
+import type { Review } from "@/lib/reviews";
 import {
   onTimeStreak,
   sinceYouLeft,
@@ -29,8 +38,10 @@ import {
   tierRank,
   TIER_ECONOMICS,
 } from "@/lib/stickiness";
+import { CapabilityEngineSection } from "@/components/capability-engine";
 import { EnginePipeline } from "@/components/engine-pipeline";
 import { MarketplaceHero } from "@/components/marketplace-hero";
+import { WorkerAppShell } from "@/components/worker-app/shell";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -53,8 +64,10 @@ const TIERS: Tier[] = ["Recruit", "Shadow", "Pro", "Elite"];
 const NAV = [
   { href: "#marketplace-hero", label: "Marketplace", icon: TrendingUp },
   { href: "#simulator", label: "Simulator", icon: Radio },
+  { href: "#worker-app", label: "Worker app", icon: Smartphone },
   { href: "#experience", label: "Experience", icon: Users },
   { href: "#engine", label: "Engine", icon: Shield },
+  { href: "#capability-engine", label: "Capabilities", icon: Boxes },
 ] as const;
 
 function ProgressRing({
@@ -165,6 +178,10 @@ export default function HomePage() {
     null,
   );
   const [highlightExperience, setHighlightExperience] = useState(false);
+  const [reviews, setReviews] = useState<Review[]>(() => [...SEED_REVIEWS]);
+  const [capabilityOverride, setCapabilityOverride] = useState<
+    import("@/lib/capabilities").Capability[] | null
+  >(null);
 
   function goTo(href: string) {
     setActiveNav(href);
@@ -192,6 +209,7 @@ export default function HomePage() {
     setSelectedId(id);
     setSignals(nextSignals);
     setGraduation(null);
+    setCapabilityOverride(null);
     prevTierRef.current = evaluate(nextSignals).tier;
   }
 
@@ -215,6 +233,16 @@ export default function HomePage() {
   }
 
   const result = useMemo(() => evaluate(signals), [signals]);
+  const capWorker = useMemo(() => {
+    const base = capabilityWorkerById(selectedId);
+    if (!capabilityOverride) return base;
+    return { ...base, capabilities: capabilityOverride };
+  }, [selectedId, capabilityOverride]);
+  const capabilityReliability = useMemo(
+    () =>
+      evaluateCapabilityReliability(selectedId, capWorker.capabilities, reviews),
+    [selectedId, capWorker.capabilities, reviews],
+  );
   const market = useMemo(
     () => evaluateMarketplace(incentiveUsd, { id: selectedId, signals }),
     [incentiveUsd, selectedId, signals],
@@ -767,7 +795,8 @@ export default function HomePage() {
                   signals={signals}
                   result={result}
                   market={market}
-                  pulseKey={`${selectedId}-${signals.onTimeRate}-${signals.acceptanceRate}-${signals.avgRating}-${signals.jobsCompleted}-${signals.lateCancellations}-${signals.noShows}-${signals.trainingBonus ?? 0}-${incentiveUsd}`}
+                  capabilityReliability={capabilityReliability}
+                  pulseKey={`${selectedId}-${signals.onTimeRate}-${signals.acceptanceRate}-${signals.avgRating}-${signals.jobsCompleted}-${signals.lateCancellations}-${signals.noShows}-${signals.trainingBonus ?? 0}-${incentiveUsd}-${capabilityReliability.overall}`}
                 />
               </motion.div>
 
@@ -871,6 +900,25 @@ export default function HomePage() {
                 </Card>
               </motion.div>
             </div>
+
+            <WorkerAppShell
+              workerId={selectedId}
+              workerName={member.name}
+              signals={signals}
+              capabilities={capWorker.capabilities}
+              reviews={reviews}
+              onAppendReview={(review) => setReviews((prev) => [...prev, review])}
+              onCapabilitiesCommit={(caps) => setCapabilityOverride(caps)}
+              onActivateFirstJob={() => {
+                patch({ jobsCompleted: signals.jobsCompleted + 1 });
+              }}
+            />
+
+            <CapabilityEngineSection
+              worker={capWorker}
+              jobs={CAPABILITY_JOBS}
+              reliability={capabilityReliability}
+            />
           </div>
         </main>
       </div>
