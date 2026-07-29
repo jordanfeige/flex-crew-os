@@ -64,6 +64,7 @@ export function buildWorkerProfile(
   const capabilities = buildWorkerCapabilityProfiles(
     worker.capabilities,
     reliabilityBreakdown,
+    { reviews, workerId: worker.id },
   );
   const mine = reviews.filter((r) => r.subjectWorkerId === worker.id);
   const ratingsAvg =

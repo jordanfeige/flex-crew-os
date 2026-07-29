@@ -17,7 +17,8 @@ export type Signals = {
   trainingBonus?: number; // 0..6
 };
 
-export type Tier = "Bronze" | "Silver" | "Gold" | "Platinum";
+/** Career progression — workforce ladder, not rewards metals. */
+export type Tier = "Recruit" | "Certified" | "Professional" | "Elite";
 
 export type BreakdownRow = {
   label: string;
@@ -59,13 +60,13 @@ export function score(s: Signals): number {
 }
 
 export function tier(scoreValue: number, jobsCompleted: number): Tier {
-  if (jobsCompleted < 3) return "Bronze";
-  if (scoreValue < 62) return "Silver";
-  if (scoreValue < 90) return "Gold";
-  return "Platinum";
+  if (jobsCompleted < 3) return "Recruit";
+  if (scoreValue < 62) return "Certified";
+  if (scoreValue < 90) return "Professional";
+  return "Elite";
 }
 
-/** Nearest score gate: 62 (→ Gold) then 90 (→ Platinum). */
+/** Nearest score gate: 62 (→ Professional) then 90 (→ Elite). */
 export function nextThreshold(scoreValue: number): number {
   if (scoreValue < 62) return 62;
   if (scoreValue < 90) return 90;
@@ -73,23 +74,23 @@ export function nextThreshold(scoreValue: number): number {
 }
 
 export function nextTierName(current: Tier): Tier | null {
-  if (current === "Bronze") return "Silver";
-  if (current === "Silver") return "Gold";
-  if (current === "Gold") return "Platinum";
+  if (current === "Recruit") return "Certified";
+  if (current === "Certified") return "Professional";
+  if (current === "Professional") return "Elite";
   return null;
 }
 
 /** Map a score threshold to the tier you clear by reaching it. */
 export function tierClearedByThreshold(threshold: number): Tier {
-  if (threshold <= 62) return "Gold";
-  if (threshold <= 90) return "Platinum";
-  return "Platinum";
+  if (threshold <= 62) return "Professional";
+  if (threshold <= 90) return "Elite";
+  return "Elite";
 }
 
 export function pointsToNextTier(scoreValue: number, jobsCompleted: number): number {
   const t = tier(scoreValue, jobsCompleted);
-  if (t === "Bronze") return Math.max(0, 62 - scoreValue);
-  if (t === "Platinum") return 0;
+  if (t === "Recruit") return Math.max(0, 62 - scoreValue);
+  if (t === "Elite") return 0;
   return Math.max(0, nextThreshold(scoreValue) - scoreValue);
 }
 
@@ -236,17 +237,17 @@ export function tierProb(sc: number, currentScore: number): number {
 }
 
 /**
- * Next-best-action always targets the nearest threshold (62 → Gold, 90 → Platinum),
+ * Next-best-action always targets the nearest threshold (62 → Professional, 90 → Elite),
  * never a far tier. Lever = highest headroom among on-time / acceptance / rating.
  */
 export function nextBestAction(s: Signals): string {
   if (s.jobsCompleted < 3) {
     const need = 3 - s.jobsCompleted;
-    return `Complete ${need} more job${need === 1 ? "" : "s"} to reach Silver`;
+    return `Complete ${need} more job${need === 1 ? "" : "s"} to reach Certified`;
   }
 
   const current = score(s);
-  if (current >= 90) return "You're Platinum — keep your streak to stay there.";
+  if (current >= 90) return "You're Elite — keep your streak to stay there.";
 
   const threshold = nextThreshold(current);
   const target = tierClearedByThreshold(threshold);
@@ -270,13 +271,13 @@ export function estimatedImpact(s: Signals): EstimatedImpact {
       delta: projected - from,
       probFrom: tierProb(from, from),
       probTo: tierProb(projected, from),
-      nextTier: "Silver",
+      nextTier: "Certified",
     };
   }
 
-  if (t === "Platinum") {
+  if (t === "Elite") {
     return {
-      action: "Maintain Platinum standards",
+      action: "Maintain Elite standards",
       from,
       to: from,
       delta: 0,
@@ -306,8 +307,8 @@ export function coachNudge(s: Signals): string {
   if (s.jobsCompleted < 3) {
     const need = 3 - s.jobsCompleted;
     return need === 1
-      ? "One more completed job unlocks Silver — you're proving out"
-      : `${need} more completed jobs unlock Silver — true activation is job 3–4`;
+      ? "One more completed job unlocks Certified — you're proving out"
+      : `${need} more completed jobs unlock Certified — true activation is job 3–4`;
   }
 
   const scoreValue = score(s);
@@ -322,9 +323,9 @@ export function coachNudge(s: Signals): string {
   const next = nextTierName(t);
   const pts = pointsToNextTier(scoreValue, s.jobsCompleted);
   if (next && pts >= 1 && pts <= 5) {
-    return `You're ${pts} pt${pts === 1 ? "" : "s"} from ${next} — one strong job gets you there`;
+    return `You're ${pts} pt${pts === 1 ? "" : "s"} from ${next} — unlock better jobs and higher earnings`;
   }
-  return "Keep your on-time streak — it's your biggest score driver.";
+  return "Keep your on-time streak — it unlocks priority matching.";
 }
 
 export function dailyGoal(s: Signals): string {

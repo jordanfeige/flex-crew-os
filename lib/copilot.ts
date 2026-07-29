@@ -69,22 +69,23 @@ export function evaluateCopilot(
     });
   }
 
-  // 2) Accelerate graduation — workers within 4 pts of Gold (62)
-  const nearGold = profiles.filter(
-    (p) => p.reliability >= 58 && p.reliability < 62 && p.tier === "Silver",
+  // 2) Accelerate graduation — workers within 4 pts of Professional (62)
+  const nearProfessional = profiles.filter(
+    (p) =>
+      p.reliability >= 58 && p.reliability < 62 && p.tier === "Certified",
   );
-  if (nearGold.length > 0) {
-    const sample = nearGold[0];
+  if (nearProfessional.length > 0) {
+    const sample = nearProfessional[0];
     recs.push({
       id: "fast-track",
       priority: 2,
-      issue: `${nearGold.length} worker${nearGold.length === 1 ? "" : "s"} within 4 pts of Gold`,
+      issue: `${nearProfessional.length} worker${nearProfessional.length === 1 ? "" : "s"} within 4 pts of Professional`,
       action: `Accelerate graduation for ${sample.name.split(" ")[0]} — push acceptance/on-time coaching`,
       impact: {
-        reliability: `+${market.fastTrackReady}% reliability lift illustrative`,
+        reliability: `+${market.fastTrackReady}% Professional Score lift illustrative`,
         fillRate: "Priority matching unlocks ≈ +$140/wk supply quality",
       },
-      signal: `Reliability engine · ${sample.name} at ${sample.reliability} (Silver → Gold at 62)`,
+      signal: `Reliability engine · ${sample.name} at ${sample.reliability} (Certified → Professional at 62)`,
       relatedWorkerId: sample.id,
     });
   }

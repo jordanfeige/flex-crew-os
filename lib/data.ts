@@ -91,8 +91,8 @@ export const PIPELINE = {
 } as const;
 
 export const PERKS_BY_TIER: Record<Tier, string[]> = {
-  Bronze: ["Building your record"],
-  Silver: ["Standard matching"],
-  Gold: ["Priority matching", "Weekly payout"],
-  Platinum: ["Top-crew badge", "Surge access"],
+  Recruit: ["Building your record"],
+  Certified: ["Standard matching"],
+  Professional: ["Priority matching", "Weekly payout"],
+  Elite: ["Top-crew badge", "Surge access"],
 };

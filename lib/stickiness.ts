@@ -8,32 +8,49 @@ import {
 } from "./engine";
 
 /**
- * Illustrative weekly earnings lift by tier unlock.
+ * Illustrative weekly earnings lift by career tier unlock.
  * Labeled illustrative everywhere in UI — calibrate with Flex Mixpanel later.
  */
 export const TIER_ECONOMICS: Record<
   Tier,
-  { weeklyUsd: number; unlockLabel: string; headline: string }
+  {
+    weeklyUsd: number;
+    unlockLabel: string;
+    headline: string;
+    unlocks: string[];
+  }
 > = {
-  Bronze: {
+  Recruit: {
     weeklyUsd: 0,
     unlockLabel: "Building your record",
     headline: "Prove out with 3 completed jobs",
+    unlocks: ["Building your record"],
   },
-  Silver: {
+  Certified: {
     weeklyUsd: 40,
     unlockLabel: "Standard matching",
-    headline: "Silver unlocks standard matching ≈ +$40/week",
+    headline: "Certified unlocks standard matching ≈ +$40/week",
+    unlocks: ["Standard matching", "Access to open marketplace jobs"],
   },
-  Gold: {
+  Professional: {
     weeklyUsd: 140,
-    unlockLabel: "Priority matching · weekly payout",
-    headline: "Gold unlocks priority matching ≈ +$140/week",
+    unlockLabel: "Priority access to premium jobs",
+    headline: "Professional unlocks priority matching ≈ +$140/week",
+    unlocks: [
+      "Priority access to premium jobs",
+      "Weekly payout",
+      "Higher match priority",
+    ],
   },
-  Platinum: {
+  Elite: {
     weeklyUsd: 220,
     unlockLabel: "Top-crew badge · surge access",
-    headline: "Platinum unlocks surge + VIP first pick ≈ +$220/week",
+    headline: "Elite unlocks surge + VIP first pick ≈ +$220/week",
+    unlocks: [
+      "Top-crew badge",
+      "Surge access",
+      "VIP first pick on premium jobs",
+    ],
   },
 };
 
@@ -78,17 +95,17 @@ export function tierMoney(s: Signals): TierMoney {
   const current = tier(scoreValue, s.jobsCompleted);
   const next = nextTierName(current);
   const demotion =
-    current === "Gold"
-      ? "Stay above 62 to keep Gold — priority matching is on the line"
-      : current === "Platinum"
-        ? "Stay above 90 to keep Platinum — surge access is on the line"
+    current === "Professional"
+      ? "Stay above 62 to keep Professional — priority matching is on the line"
+      : current === "Elite"
+        ? "Stay above 90 to keep Elite — surge access is on the line"
         : null;
 
   if (!next) {
     return {
       next: null,
-      weeklyUsd: TIER_ECONOMICS.Platinum.weeklyUsd,
-      headline: TIER_ECONOMICS.Platinum.headline,
+      weeklyUsd: TIER_ECONOMICS.Elite.weeklyUsd,
+      headline: TIER_ECONOMICS.Elite.headline,
       demotion,
     };
   }
@@ -117,26 +134,26 @@ export function sinceYouLeft(s: Signals): SinceYouLeftLine[] {
   const money = tierMoney(s);
   const lines: SinceYouLeftLine[] = [];
 
-  if (current === "Bronze") {
+  if (current === "Recruit") {
     const need = Math.max(0, 3 - s.jobsCompleted);
     lines.push({
       id: "activation",
       text:
         need > 0
-          ? `${need} more job${need === 1 ? "" : "s"} to Silver — true activation starts here`
-          : "You're one clean finish from Silver",
+          ? `${need} more job${need === 1 ? "" : "s"} to Certified — true activation starts here`
+          : "You're one clean finish from Certified",
       tone: "money",
     });
   } else if (next && pts >= 1 && pts <= 5) {
     lines.push({
       id: "score",
-      text: `Your score is ${scoreValue} — ${pts} pt${pts === 1 ? "" : "s"} from ${next} (≈ +$${money.weeklyUsd}/wk)`,
+      text: `You're ${pts} pt${pts === 1 ? "" : "s"} from ${next} — unlocks ≈ +$${money.weeklyUsd}/wk`,
       tone: "money",
     });
   } else {
     lines.push({
       id: "score",
-      text: `Reliability ${scoreValue} · ${current} — still climbing`,
+      text: `Professional Score ${scoreValue} · ${current} — still climbing`,
       tone: "neutral",
     });
   }
@@ -145,7 +162,7 @@ export function sinceYouLeft(s: Signals): SinceYouLeftLine[] {
   if (training < 6) {
     lines.push({
       id: "course",
-      text: `A 5-min course could add +${Math.min(2, 6 - training)} reliability before your next offer`,
+      text: `A 5-min course could lift your Professional Score +${Math.min(2, 6 - training)} before your next offer`,
       tone: "learn",
     });
   }
@@ -170,5 +187,5 @@ export function sinceYouLeft(s: Signals): SinceYouLeftLine[] {
 }
 
 export function tierRank(t: Tier): number {
-  return ["Bronze", "Silver", "Gold", "Platinum"].indexOf(t);
+  return ["Recruit", "Certified", "Professional", "Elite"].indexOf(t);
 }

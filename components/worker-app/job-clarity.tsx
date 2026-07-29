@@ -150,13 +150,17 @@ export function JobDetailScreen({
           <div className="fx-dttl">Move Summary</div>
           <div className="fx-daitag">
             <span className="sp">✦</span>
-            AI-generated from the customer&apos;s inputs.
+            AI summary from the customer&apos;s walkthrough
           </div>
         </div>
       </div>
 
       <div className="fx-dbody">
         <div className="fx-dhero">
+          <div className="name">{job.title}</div>
+          <div className="sub">
+            {job.city} · {job.slot}
+          </div>
           {mode === "confirmed" ? (
             <span className="stat">✓ Confirmed</span>
           ) : (
@@ -169,25 +173,12 @@ export function JobDetailScreen({
               Match {match ?? 0}%
             </span>
           )}
-          <div className="name" style={{ marginTop: 8 }}>
-            {job.title}
-          </div>
-          <div className="sub">
-            {job.city} · {job.slot}
-          </div>
           <div className="row2">
-            <div
-              style={{
-                fontSize: 12,
-                color: "var(--muted)",
-                display: "flex",
-                flexDirection: "column",
-                gap: 4,
-                justifyContent: "flex-end",
-              }}
-            >
-              <span className="fx-tabular">{c.estimatedHours} hrs est.</span>
-              <span className="fx-tabular">Crew of {c.crewRequired}</span>
+            <div className="aigen">
+              ✦ AI-generated from the customer&apos;s inputs
+              <div style={{ marginTop: 6 }} className="fx-tabular">
+                {c.estimatedHours} hrs est. · Crew of {c.crewRequired}
+              </div>
             </div>
             <div className="earnb">
               <div className="l">You earn</div>
@@ -210,21 +201,30 @@ export function JobDetailScreen({
           <div className="fx-sec">
             <div className="fx-sec-h" style={{ cursor: "default" }}>
               <Play className="h-3.5 w-3.5 text-[var(--flex)]" />
-              Source media
+              From the customer&apos;s walkthrough
               <span className="count">
                 {job.media.photos.length + (job.media.video ? 1 : 0)}
               </span>
             </div>
-            <p style={{ fontSize: 11.5, color: "var(--muted)", marginBottom: 10 }}>
-              Built from the customer&apos;s structured inputs and optional video —
-              tap any clip or photo to verify.
-            </p>
             <WalkthroughMedia
               media={job.media}
               openItem={lightbox}
               onOpen={setLightbox}
               onClose={() => setLightbox(null)}
             />
+            <p
+              style={{
+                fontSize: 11.5,
+                color: "var(--muted)",
+                marginTop: 10,
+                display: "flex",
+                gap: 6,
+              }}
+            >
+              <span style={{ color: "var(--flex)" }}>✦</span>
+              AI built this from the customer&apos;s video — tap any clip or photo to
+              verify.
+            </p>
           </div>
         ) : (
           <div className="fx-sec" style={{ fontSize: 12, color: "var(--muted)" }}>
@@ -235,7 +235,7 @@ export function JobDetailScreen({
 
         <div className="fx-sec">
           <div className="fx-sec-h" style={{ cursor: "default" }}>
-            Executive summary
+            At a glance
           </div>
           <div style={{ display: "flex", flexWrap: "wrap", gap: 7 }}>
             {c.keyFacts.map((fact) => (
@@ -356,7 +356,7 @@ export function JobDetailScreen({
       <div className="fx-dbar">
         {mode === "claimable" ? (
           <button type="button" className="fx-primary" onClick={handleClaim}>
-            Claim this move <span style={{ opacity: 0.85 }}>· ${total}</span>
+            Claim this move <span className="amt">· ${total}</span>
           </button>
         ) : (
           <>

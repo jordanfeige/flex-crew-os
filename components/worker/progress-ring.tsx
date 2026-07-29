@@ -14,11 +14,11 @@ export function ProgressRing({
   color: string;
   label: string;
   sub: string;
-  size?: 96 | 120;
+  size?: 96 | 104 | 120;
 }) {
   const reduce = useReducedMotion();
-  const r = size === 96 ? 36 : 48;
-  const stroke = size === 96 ? 8 : 9;
+  const r = size === 120 ? 48 : size === 104 ? 46 : 36;
+  const stroke = size === 120 ? 9 : 8;
   const c = 2 * Math.PI * r;
   const pct = Math.min(100, Math.max(0, value)) / 100;
   const dash = c * pct;
@@ -39,7 +39,7 @@ export function ProgressRing({
           cy={vb / 2}
           r={r}
           fill="none"
-          stroke="var(--border)"
+          stroke="#eceef1"
           strokeWidth={stroke}
         />
         <motion.circle
@@ -65,9 +65,9 @@ export function ProgressRing({
             animate={{ opacity: 1, y: 0 }}
             exit={reduce ? undefined : { opacity: 0, y: -4 }}
             className={
-              size === 96
-                ? "text-lg font-semibold tabular leading-none tracking-tight"
-                : "text-2xl font-semibold tabular tracking-tight"
+              size === 120
+                ? "text-2xl font-semibold tabular tracking-tight"
+                : "text-[26px] font-extrabold tabular leading-none tracking-tight"
             }
           >
             {label}
@@ -75,9 +75,9 @@ export function ProgressRing({
         </AnimatePresence>
         <span
           className={
-            size === 96
-              ? "mt-0.5 max-w-[4rem] text-[9px] leading-tight text-muted-foreground"
-              : "mt-0.5 max-w-[4.5rem] text-[10px] leading-tight text-muted-foreground"
+            size === 120
+              ? "mt-0.5 max-w-[4.5rem] text-[10px] leading-tight text-muted-foreground"
+              : "mt-0.5 max-w-[4rem] text-[10px] leading-tight text-muted-foreground"
           }
         >
           {sub}

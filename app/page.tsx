@@ -40,7 +40,7 @@ import { WorkerHomeTab } from "@/components/worker/home-tab";
 import { WorkerProgressTab } from "@/components/worker/progress-tab";
 import { CapabilityVettingSheet } from "@/components/worker/capability-vetting";
 import { PhoneFrame } from "@/components/worker/phone-frame";
-import { tierCss } from "@/components/worker/tier";
+import { tierCss, tierPillClass } from "@/components/worker/tier";
 import {
   JobDetailScreen,
   type JobDetailMode,
@@ -51,13 +51,6 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Slider } from "@/components/ui/slider";
 import { cn } from "@/lib/utils";
-
-function tierPillClass(t: Tier): string {
-  if (t === "Bronze") return "fx-pill tier-bronze";
-  if (t === "Silver") return "fx-pill tier";
-  if (t === "Gold") return "fx-pill tier-gold";
-  return "fx-pill tier-platinum";
-}
 
 function cloneSignals(s: Signals): Signals {
   return { ...s, trainingBonus: s.trainingBonus ?? 0 };
@@ -266,15 +259,15 @@ export default function HomePage() {
     : weekEarnings;
   const member: CrewMember = CREW.find((c) => c.id === selectedId) ?? CREW[0];
 
-  /** Plain-language Home nudge — no probability math. */
+  /** Plain-language Home nudge — skills → jobs → earnings. */
   const homeNudge =
-    result.tier === "Silver"
-      ? "Claim 1 more weekend job to reach Gold — unlocks priority matching, ≈ +$140/week."
-      : result.tier === "Bronze"
-        ? `Complete ${Math.max(0, 3 - signals.jobsCompleted)} more job${Math.max(0, 3 - signals.jobsCompleted) === 1 ? "" : "s"} to reach Silver — standard matching unlocks.`
-        : result.tier === "Gold"
-          ? "Keep your on-time streak to hold Gold priority matching."
-          : "You're Platinum — keep the streak to stay there.";
+    result.tier === "Certified"
+      ? "Claim 1 more weekend job to reach Professional — unlocks priority matching, ≈ +$140/week."
+      : result.tier === "Recruit"
+        ? `Complete ${Math.max(0, 3 - signals.jobsCompleted)} more job${Math.max(0, 3 - signals.jobsCompleted) === 1 ? "" : "s"} to reach Certified — standard matching unlocks.`
+        : result.tier === "Professional"
+          ? "Keep your on-time streak to hold Professional priority matching."
+          : "You're Elite — keep the streak to stay there.";
 
   function openJobDetail(
     job: CapabilityJob,
@@ -340,10 +333,10 @@ export default function HomePage() {
   }, []);
 
   const ptsLabel =
-    result.tier === "Platinum"
-      ? "Platinum"
-      : result.tier === "Bronze"
-        ? `${Math.max(0, 3 - signals.jobsCompleted)} job${3 - signals.jobsCompleted === 1 ? "" : "s"} to Silver`
+    result.tier === "Elite"
+      ? "Elite"
+      : result.tier === "Recruit"
+        ? `${Math.max(0, 3 - signals.jobsCompleted)} job${3 - signals.jobsCompleted === 1 ? "" : "s"} to Certified`
         : `${result.pointsToNextTier} pt${result.pointsToNextTier === 1 ? "" : "s"} to ${next}`;
 
   const fade = reduce
@@ -673,7 +666,7 @@ export default function HomePage() {
                         initial={reduce ? false : { opacity: 0, x: 12 }}
                         animate={{ opacity: 1, x: 0 }}
                         exit={reduce ? undefined : { opacity: 0, x: 8 }}
-                        className="absolute inset-0 z-30 flex min-h-0 flex-col overflow-hidden bg-[var(--canvas)]"
+                        className="absolute inset-0 z-30 flex h-full min-h-0 flex-col overflow-hidden bg-[var(--canvas)]"
                       >
                         <JobDetailScreen
                           job={clarityJob}

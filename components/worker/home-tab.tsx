@@ -4,16 +4,9 @@ import { Check, ChevronRight, Sparkles } from "lucide-react";
 import type { CapabilityJob } from "@/lib/capabilities";
 import { jobPayTotal } from "@/lib/capabilities";
 import type { WorkerProfile } from "@/lib/worker";
-import type { Tier } from "@/lib/engine";
 import { WhyMatched } from "@/components/worker/why-matched";
+import { tierPillClass } from "@/components/worker/tier";
 import { cn } from "@/lib/utils";
-
-function tierPillClass(t: Tier): string {
-  if (t === "Bronze") return "fx-pill tier-bronze";
-  if (t === "Silver") return "fx-pill tier";
-  if (t === "Gold") return "fx-pill tier-gold";
-  return "fx-pill tier-platinum";
-}
 
 export function WorkerHomeTab({
   profile,
@@ -128,43 +121,42 @@ function JobRow({
   const pay = jobPayTotal(job);
   const strong = (match ?? 0) >= 90;
 
-  return (
-    <div style={{ marginBottom: 9 }}>
-      <button type="button" className="fx-job" onClick={onOpen} style={{ marginBottom: 0 }}>
-        <div className="ic">Fx</div>
-        <div className="mid">
-          <div className="t">{job.title}</div>
-          <div className="s">
-            {job.city} · {job.slot}
-          </div>
-          <div className="meta">
-            {mode === "confirmed" ? (
-              <span className="fx-tag conf">
-                <Check className="mr-0.5 inline h-2.5 w-2.5" /> Confirmed
-              </span>
-            ) : (
-              <span className={cn("fx-tag", strong ? "m100" : "m50")}>
-                Match {match}%
-              </span>
-            )}
-            <span className="fx-tag ai">
-              <Sparkles className="mr-0.5 inline h-2.5 w-2.5" /> AI Job Brief
+  const row = (
+    <button type="button" className="fx-job" onClick={onOpen}>
+      <div className="ic">Fx</div>
+      <div className="mid">
+        <div className="t">{job.title}</div>
+        <div className="s">
+          {job.city} · {job.slot}
+        </div>
+        <div className="meta">
+          {mode === "confirmed" ? (
+            <span className="fx-tag conf">
+              <Check className="mr-0.5 inline h-2.5 w-2.5" /> Confirmed
             </span>
-          </div>
+          ) : (
+            <span className={cn("fx-tag", strong ? "m100" : "m50")}>
+              Match {match}%
+            </span>
+          )}
+          <span className="fx-tag ai">
+            <Sparkles className="mr-0.5 inline h-2.5 w-2.5" /> AI Job Brief
+          </span>
         </div>
-        <span className="pay">${pay}</span>
-        <span className="fx-chev">
-          <ChevronRight className="h-4 w-4" />
-        </span>
-      </button>
-      {mode === "claimable" ? (
-        <div
-          className="fx-card"
-          style={{ marginTop: 0, borderRadius: "0 0 14px 14px", borderTop: 0, padding: "8px 10px" }}
-        >
-          <WhyMatched profile={profile} job={job} onImprove={onImprove} />
-        </div>
-      ) : null}
+      </div>
+      <span className="pay">${pay}</span>
+      <span className="fx-chev">
+        <ChevronRight className="h-4 w-4" />
+      </span>
+    </button>
+  );
+
+  if (mode !== "claimable") return row;
+
+  return (
+    <div className="fx-job-shell">
+      {row}
+      <WhyMatched profile={profile} job={job} onImprove={onImprove} />
     </div>
   );
 }
