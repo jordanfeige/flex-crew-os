@@ -59,12 +59,12 @@ export function opportunityInsight(
     const earningsLiftPct = 18;
     const certName =
       certTarget.certs[0] ?? `${certTarget.label} certification`;
-    const module = certTarget.coachingModuleId
+    const coachModule = certTarget.coachingModuleId
       ? COACHING_MODULES[certTarget.coachingModuleId]
       : skillTarget.coachingModuleId
         ? COACHING_MODULES[skillTarget.coachingModuleId]
         : null;
-    const moduleTitle = module?.title ?? certName;
+    const moduleTitle = coachModule?.title ?? certName;
 
     return {
       weeklyLeftOnTable: Math.max(120, weeklyLeftOnTable),
@@ -95,11 +95,11 @@ export function opportunityInsight(
     28,
     Math.max(12, Math.round(weeklyLeftOnTable / 10)),
   );
-  const module = target.coachingModuleId
+  const coachModule = target.coachingModuleId
     ? COACHING_MODULES[target.coachingModuleId]
     : null;
   const certName = target.certs[0] ?? `${target.label} certification`;
-  const moduleTitle = module?.title ?? certName;
+  const moduleTitle = coachModule?.title ?? certName;
 
   const summary = target.earned
     ? `Improving your ${target.label} skill from ${fromScore} → ${toScore} would qualify you for ${additionalJobsPerWeek} additional jobs each week, increasing your estimated weekly earnings by ${earningsLiftPct}%.`
